@@ -8,6 +8,15 @@
 </head>
 <body>
 
+  <!-- Barra superior (solo visible en teléfonos) -->
+  <div class="barra-movil">
+    <button class="btn-menu" onclick="alternarMenuMovil()" aria-label="Menú">☰</button>
+    <strong>Prime <span>Fit</span></strong>
+  </div>
+
+  <!-- Fondo oscuro al abrir el menú en móvil -->
+  <div id="fondoMenu" onclick="cerrarMenuMovil()"></div>
+
   <div class="app">
 
     <!-- ================= SIDEBAR ================= -->

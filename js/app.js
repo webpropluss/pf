@@ -56,7 +56,24 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   document.querySelectorAll('.nav-item').forEach(item =>
-    item.addEventListener('click', () => abrirModulo(item.dataset.modulo)));
+    item.addEventListener('click', () => {
+      abrirModulo(item.dataset.modulo);
+      cerrarMenuMovil();   // en el teléfono, cerrar el menú al elegir
+    }));
 
   abrirModulo('dashboard');
+
+  // "Latido" para mantener la base despierta (no se suspende por inactividad).
+  // Falla en silencio si la tabla ping aún no existe.
+  db.rpc('ping_keepalive').then(() => {}).catch(() => {});
 });
+
+// ---------- Menú lateral en móviles ----------
+function alternarMenuMovil() {
+  document.querySelector('.sidebar')?.classList.toggle('abierto');
+  document.getElementById('fondoMenu')?.classList.toggle('visible');
+}
+function cerrarMenuMovil() {
+  document.querySelector('.sidebar')?.classList.remove('abierto');
+  document.getElementById('fondoMenu')?.classList.remove('visible');
+}

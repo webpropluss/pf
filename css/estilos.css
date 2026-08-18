@@ -174,12 +174,11 @@ tr:hover td { background: var(--negro-suave); }
 .grafico .barra .dia { font-size: 12px; color: var(--texto-suave); }
 .grafico .barra .monto { font-size: 12px; font-weight: 600; }
 
-/* ---------- Responsive ---------- */
+/* ---------- Responsive: tablet ---------- */
 @media (max-width: 900px) {
   .login-contenedor { grid-template-columns: 1fr; }
   .login-lateral { display: none; }
-  .app { grid-template-columns: 1fr; }
-  .sidebar { position: static; height: auto; }
+  .contenido { padding: 20px; }
 }
 
 /* ============================================================
@@ -237,3 +236,79 @@ tr:hover td { background: var(--negro-suave); }
 
 .check-grande { width: 20px; height: 20px; accent-color: var(--rojo); cursor: pointer; }
 .subtexto { color: var(--texto-suave); font-size: 13px; }
+
+/* ============================================================
+   RESPONSIVE MÓVIL · barra superior + menú deslizable + tablas
+   ============================================================ */
+
+/* Barra superior y fondo del menú: ocultos en escritorio */
+.barra-movil { display: none; }
+#fondoMenu { display: none; }
+
+@media (max-width: 760px) {
+  /* Barra superior fija con botón de menú */
+  .barra-movil {
+    display: flex; align-items: center; gap: 12px;
+    position: sticky; top: 0; z-index: 40;
+    background: var(--negro-panel); border-bottom: 1px solid var(--borde);
+    padding: 12px 16px;
+  }
+  .barra-movil strong {
+    font-family: var(--fuente-titulo); font-size: 22px; text-transform: uppercase;
+  }
+  .barra-movil strong span { color: var(--rojo); }
+  .btn-menu {
+    background: var(--negro-suave); color: var(--texto);
+    border: 1px solid var(--borde); border-radius: 8px;
+    font-size: 22px; line-height: 1; padding: 6px 12px; cursor: pointer;
+  }
+
+  /* La app deja de ser de dos columnas */
+  .app { grid-template-columns: 1fr; }
+
+  /* El menú lateral se convierte en cajón deslizable desde la izquierda */
+  .sidebar {
+    position: fixed; top: 0; left: 0; height: 100vh; width: 260px;
+    transform: translateX(-100%); transition: transform .25s ease;
+    z-index: 60; box-shadow: 4px 0 24px rgba(0,0,0,.5);
+  }
+  .sidebar.abierto { transform: translateX(0); }
+
+  /* Fondo oscuro cuando el menú está abierto */
+  #fondoMenu.visible {
+    display: block; position: fixed; inset: 0;
+    background: rgba(0,0,0,.55); z-index: 50;
+  }
+
+  .contenido { padding: 16px; }
+  .contenido header.cabecera { flex-direction: column; align-items: flex-start; gap: 4px; }
+  .contenido header.cabecera h2 { font-size: 26px; }
+
+  /* Tarjetas del dashboard en una o dos columnas */
+  .tarjetas { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .tarjeta .valor { font-size: 30px; }
+
+  /* Tablas: permitir desplazamiento horizontal para no romper el diseño */
+  .panel { padding: 14px; overflow-x: auto; }
+  table { min-width: 560px; }
+
+  /* Formularios y modales a una sola columna */
+  .modal { max-width: 100%; padding: 18px; }
+  .modal .fila { grid-template-columns: 1fr; }
+  .detalle-linea { grid-template-columns: 1fr; gap: 8px; }
+
+  /* Barra de herramientas apilada y botones a lo ancho */
+  .toolbar { flex-direction: column; align-items: stretch; }
+  .toolbar .btn { width: 100%; justify-content: center; }
+
+  /* Notificación ocupando el ancho */
+  .toast { left: 16px; right: 16px; bottom: 16px; text-align: center; }
+
+  /* Gráfico un poco más bajo */
+  .grafico { height: 140px; }
+}
+
+/* Teléfonos muy angostos: una sola tarjeta por fila */
+@media (max-width: 420px) {
+  .tarjetas { grid-template-columns: 1fr; }
+}
