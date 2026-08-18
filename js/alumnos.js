@@ -11,7 +11,6 @@ async function cargarAlumnos(contenido) {
       <td><strong>${a.nombre}</strong><div class="subtexto">${a.codigo}</div></td>
       <td>${a.dni || '—'}</td>
       <td>${a.telefono || '—'}</td>
-      <td>${a.email || '—'}</td>
       <td>${edadDe(a.fecha_nacimiento)} años</td>
       <td>${a.activo ? '<span class="pill pill-verde">Activo</span>' : '<span class="pill pill-rojo">Inactivo</span>'}</td>
       <td class="acciones">
@@ -28,7 +27,7 @@ async function cargarAlumnos(contenido) {
     </div>
     <div class="panel">
       <table>
-        <thead><tr><th></th><th>Nombre</th><th>DNI</th><th>Teléfono</th><th>Email</th><th>Edad</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th></th><th>Nombre</th><th>DNI</th><th>Teléfono</th><th>Edad</th><th>Estado</th><th></th></tr></thead>
         <tbody id="tbodyAlumnos">${filas(alumnos)}</tbody>
       </table>
     </div>`;
@@ -51,7 +50,7 @@ function edadDe(fecha) {
 async function dialogoAlumno(id) {
   const a = id
     ? verificar(await db.from('alumnos').select('*').eq('id', id).single())
-    : { nombre: '', dni: '', telefono: '', email: '', fecha_nacimiento: '2000-01-01', direccion: '', foto_url: null };
+    : { nombre: '', dni: '', telefono: '', fecha_nacimiento: '2000-01-01', direccion: '', foto_url: null };
 
   abrirModal(id ? 'Editar alumno' : 'Nuevo alumno', `
     <div class="campo"><label>Nombre completo</label><input name="nombre" required value="${a.nombre}"></div>
@@ -60,10 +59,7 @@ async function dialogoAlumno(id) {
       <div class="campo"><label>Teléfono (WhatsApp, con código de país)</label>
         <input name="telefono" placeholder="59171234567" value="${a.telefono || ''}"></div>
     </div>
-    <div class="fila">
-      <div class="campo"><label>Email</label><input type="email" name="email" value="${a.email || ''}"></div>
-      <div class="campo"><label>Fecha de nacimiento</label><input type="date" name="fecha_nacimiento" value="${a.fecha_nacimiento || ''}"></div>
-    </div>
+    <div class="campo"><label>Fecha de nacimiento</label><input type="date" name="fecha_nacimiento" value="${a.fecha_nacimiento || ''}"></div>
     <div class="campo"><label>Dirección</label><input name="direccion" value="${a.direccion || ''}"></div>
     <div class="campo"><label>Foto (opcional)</label><input type="file" name="foto" accept="image/*"></div>
   `, async (form) => {
@@ -71,7 +67,6 @@ async function dialogoAlumno(id) {
       nombre: form.nombre.value.trim(),
       dni: form.dni.value.trim(),
       telefono: form.telefono.value.replace(/[^\d]/g, ''),
-      email: form.email.value.trim(),
       fecha_nacimiento: form.fecha_nacimiento.value || null,
       direccion: form.direccion.value.trim(),
     };
