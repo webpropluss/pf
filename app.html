@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prime Fit · Panel</title>
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+
+  <div class="app">
+
+    <!-- ================= SIDEBAR ================= -->
+    <aside class="sidebar">
+      <div class="marca">
+        <img src="img/logo_black.png" alt="Prime Fit">
+        <strong>Prime <span>Fit</span></strong>
+      </div>
+
+      <nav id="menu">
+        <div class="nav-item activo" data-modulo="dashboard">🏠 Dashboard</div>
+        <div class="nav-item" data-modulo="alumnos">👥 Alumnos</div>
+        <div class="nav-item" data-modulo="disciplinas">🥊 Disciplinas</div>
+        <div class="nav-item" data-modulo="horarios">🕒 Horarios</div>
+        <div class="nav-item" data-modulo="instructores">🧑‍🏫 Instructores</div>
+        <div class="nav-item" data-modulo="inscripciones">📝 Inscripciones</div>
+        <div class="nav-item" data-modulo="pagos">💵 Pagos</div>
+        <div class="nav-item" data-modulo="asistencia">✅ Asistencia</div>
+        <div class="nav-item" data-modulo="reportes">📊 Reportes</div>
+        <div class="nav-item" data-modulo="usuarios" data-solo-admin>👤 Usuarios</div>
+        <div class="nav-item" data-modulo="configuracion" data-solo-admin>⚙ Configuración</div>
+      </nav>
+
+      <div class="usuario">
+        <strong id="usuarioNombre">—</strong>
+        <span id="usuarioRol">—</span>
+        <button class="btn btn-oscuro" onclick="cerrarSesion()">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <!-- ================= CONTENIDO ================= -->
+    <main class="contenido" id="contenido">
+      <p class="cargando">Cargando…</p>
+    </main>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/alumnos.js"></script>
+  <script src="js/catalogos.js"></script>
+  <script src="js/horarios.js"></script>
+  <script src="js/inscripciones.js"></script>
+  <script src="js/pagos.js"></script>
+  <script src="js/asistencia.js"></script>
+  <script src="js/reportes.js"></script>
+  <script src="js/usuarios_config.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

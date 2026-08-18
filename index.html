@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prime Fit · Iniciar sesión</title>
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+
+  <div class="login-contenedor">
+
+    <!-- Panel lateral con imagen -->
+    <aside class="login-lateral">
+      <img src="img/login_side.png" alt="Prime Fit">
+      <div class="frase">Entrena duro.<br><span>Vive Prime.</span></div>
+    </aside>
+
+    <!-- Formulario -->
+    <main class="login-panel">
+      <div class="login-caja">
+        <img class="logo" src="img/logo_black.png" alt="Logo Prime Fit">
+        <h1>Prime <span>Fit</span></h1>
+        <p class="sub">Sistema de gestión del gimnasio</p>
+
+        <div id="error" class="mensaje-error"></div>
+
+        <form id="formLogin">
+          <div class="campo">
+            <label for="email">Correo</label>
+            <input type="email" id="email" placeholder="admin@primefit.com" required autocomplete="username">
+          </div>
+          <div class="campo">
+            <label for="clave">Contraseña</label>
+            <input type="password" id="clave" placeholder="••••••••" required autocomplete="current-password">
+          </div>
+          <button type="submit" id="btnEntrar" class="btn btn-rojo">Iniciar sesión</button>
+        </form>
+      </div>
+    </main>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    // Si ya hay sesión activa, entrar directo a la aplicación
+    sesionActual().then(s => { if (s) location.href = 'app.html'; });
+
+    document.getElementById('formLogin').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('btnEntrar');
+      const error = document.getElementById('error');
+      error.classList.remove('visible');
+      btn.disabled = true; btn.textContent = 'Ingresando…';
+
+      const ok = await iniciarSesion(
+        document.getElementById('email').value.trim(),
+        document.getElementById('clave').value
+      );
+
+      if (ok.exito) {
+        location.href = 'app.html';
+      } else {
+        error.textContent = ok.mensaje;
+        error.classList.add('visible');
+        btn.disabled = false; btn.textContent = 'Iniciar sesión';
+      }
+    });
+  </script>
+</body>
+</html>
