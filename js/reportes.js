@@ -31,7 +31,7 @@ async function generarReporte() {
     db.from('pagos').select('*, alumnos(nombre)')
       .gte('fecha', desde + 'T00:00:00').lte('fecha', hasta + 'T23:59:59').order('fecha'),
     db.from('inscripciones')
-      .select('*, alumnos(nombre), inscripcion_detalles(precio_mensual, meses, disciplinas(nombre))')
+      .select('*, alumnos(nombre), inscripcion_detalles(precio_mensual, precio_lista, meses, disciplinas(nombre))')
       .eq('anulada', false)
       .gte('fecha', desde + 'T00:00:00').lte('fecha', hasta + 'T23:59:59'),
     db.from('asistencias').select('presente').gte('fecha', desde).lte('fecha', hasta),
@@ -41,12 +41,16 @@ async function generarReporte() {
   const totalFacturado = (inscripciones.data || []).reduce((s, i) => s + Number(i.total), 0);
   const presentes = (asistencias.data || []).filter(a => a.presente).length;
 
-  // Ingresos facturados por disciplina
+  // Ingresos facturados por disciplina + descuentos otorgados (precio especial)
   const porDisciplina = {};
+  let descuentosDados = 0;
   (inscripciones.data || []).forEach(i =>
     (i.inscripcion_detalles || []).forEach(d => {
       const nom = d.disciplinas?.nombre || '—';
-      porDisciplina[nom] = (porDisciplina[nom] || 0) + Number(d.precio_mensual) * d.meses;
+      const cobrado = Number(d.precio_mensual);
+      const lista = Number(d.precio_lista ?? d.precio_mensual);
+      porDisciplina[nom] = (porDisciplina[nom] || 0) + cobrado * d.meses;
+      descuentosDados += Math.max(lista - cobrado, 0) * d.meses;
     }));
 
   repDatos = { desde, hasta, pagos: pagos.data || [], inscripciones: inscripciones.data || [], porDisciplina };
@@ -57,6 +61,7 @@ async function generarReporte() {
       <div class="tarjeta acento"><div class="etiqueta">Facturado (inscripciones)</div><div class="valor">${util.bs(totalFacturado)}</div></div>
       <div class="tarjeta acento"><div class="etiqueta">Inscripciones</div><div class="valor">${(inscripciones.data || []).length}</div></div>
       <div class="tarjeta acento"><div class="etiqueta">Asistencias registradas</div><div class="valor">${presentes}</div></div>
+      <div class="tarjeta acento"><div class="etiqueta">Descuentos otorgados</div><div class="valor">${util.bs(descuentosDados)}</div></div>
     </div>
 
     <div class="panel">

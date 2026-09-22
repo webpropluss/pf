@@ -88,10 +88,13 @@ async function nuevaInscripcion() {
         </select></div>
       <div class="campo" style="margin:0"><label>Horario</label>
         <select id="selHorario"><option value="">—</option></select></div>
+      <div class="campo" style="margin:0"><label>Precio Bs. <span class="subtexto">(editable)</span></label>
+        <input type="number" id="inpPrecio" min="0" step="0.5" placeholder="0.00"></div>
       <div class="campo" style="margin:0"><label>Meses</label>
         <input type="number" id="inpMeses" min="1" value="1"></div>
       <button type="button" class="btn btn-oscuro" onclick="agregarDetalleIns()">＋</button>
     </div>
+    <p class="subtexto" id="avisoPrecio" style="margin:-4px 0 12px"></p>
     <div id="tablaDetalles"></div>
 
     <div class="fila">
@@ -114,7 +117,9 @@ async function nuevaInscripcion() {
       p_usuario_nombre: perfilActual?.nombre || '',
       p_detalles: insDetalles.map(d => ({
         disciplina_id: d.disciplina_id, horario_id: d.horario_id,
-        precio_mensual: d.precio, meses: d.meses,
+        precio_mensual: d.precio,                        // lo que realmente se le cobra
+        precio_lista: d.precioLista ?? d.precio,         // precio normal, para ver el descuento
+        meses: d.meses,
       })),
     }));
     notificar(`Inscripción registrada (INS-${id}). Las plazas quedaron ocupadas.`);
@@ -133,6 +138,17 @@ function filtrarHorariosIns() {
       return `<option value="${h.id}" ${disp <= 0 ? 'disabled' : ''}>
         ${h.dias} ${h.hora_inicio} · ${h.instructores?.nombre || ''} · ${disp} libres${disp <= 0 ? ' (LLENO)' : ''}</option>`;
     }).join('');
+
+  // Cargar el precio de lista de la disciplina; se puede cambiar para dar descuento
+  const dis = insCatalogo.disciplinas.find(d => d.id === disId);
+  const inpPrecio = document.getElementById('inpPrecio');
+  const aviso = document.getElementById('avisoPrecio');
+  if (inpPrecio) inpPrecio.value = dis ? Number(dis.precio_mensual) : '';
+  if (aviso) {
+    aviso.textContent = dis
+      ? `Precio normal de ${dis.nombre}: ${util.bs(dis.precio_mensual)} · cámbialo si le haces precio especial.`
+      : '';
+  }
 }
 
 function agregarDetalleIns() {
@@ -144,11 +160,24 @@ function agregarDetalleIns() {
 
   const dis = insCatalogo.disciplinas.find(d => d.id === disId);
   const hor = insCatalogo.horarios.find(h => h.id === horId);
+
+  // Precio de lista vs. precio que se le cobra (puede ser menor por promoción)
+  const precioLista = Number(dis.precio_mensual);
+  const campoPrecio = document.getElementById('inpPrecio').value;
+  const precio = campoPrecio === '' ? precioLista : Number(campoPrecio);
+
+  if (isNaN(precio) || precio < 0) { notificar('El precio no es válido.', true); return; }
+  if (precio > precioLista) {
+    if (!confirmar(`El precio ${util.bs(precio)} es MAYOR al normal (${util.bs(precioLista)}). ¿Continuar igual?`)) return;
+  }
+
   insDetalles.push({
     disciplina_id: disId, horario_id: horId, meses,
-    precio: Number(dis.precio_mensual),
+    precio, precioLista,
     texto: `${dis.nombre} · ${hor.dias} ${hor.hora_inicio}`,
   });
+  document.getElementById('inpPrecio').value = '';
+  document.getElementById('avisoPrecio').textContent = '';
   pintarDetallesIns();
 }
 
@@ -159,20 +188,35 @@ function pintarDetallesIns() {
   if (!cont) return;
   cont.innerHTML = insDetalles.length ? `
     <table style="margin-bottom:14px">
-      <thead><tr><th>Clase</th><th>Precio</th><th>Meses</th><th>Subtotal</th><th></th></tr></thead>
-      <tbody>${insDetalles.map((d, i) => `
-        <tr><td>${d.texto}</td><td>${util.bs(d.precio)}</td><td>${d.meses}</td>
-            <td>${util.bs(d.precio * d.meses)}</td>
-            <td class="acciones"><button type="button" onclick="quitarDetalleIns(${i})">✖️</button></td></tr>`).join('')}
+      <thead><tr><th>Clase</th><th>Precio normal</th><th>Se le cobra</th><th>Meses</th><th>Subtotal</th><th></th></tr></thead>
+      <tbody>${insDetalles.map((d, i) => {
+        const rebaja = (d.precioLista ?? d.precio) - d.precio;
+        return `
+        <tr>
+          <td>${d.texto}</td>
+          <td class="subtexto" style="${rebaja > 0 ? 'text-decoration:line-through' : ''}">${util.bs(d.precioLista ?? d.precio)}</td>
+          <td><strong>${util.bs(d.precio)}</strong>
+              ${rebaja > 0 ? `<div><span class="pill pill-verde">−${util.bs(rebaja)}</span></div>` : ''}</td>
+          <td>${d.meses}</td>
+          <td>${util.bs(d.precio * d.meses)}</td>
+          <td class="acciones"><button type="button" onclick="quitarDetalleIns(${i})">✖️</button></td>
+        </tr>`; }).join('')}
       </tbody>
     </table>` : '<p class="subtexto" style="margin-bottom:14px">Sin clases agregadas todavía.</p>';
 
-  const sub = insDetalles.reduce((s, d) => s + d.precio * d.meses, 0);
+  const sub    = insDetalles.reduce((s, d) => s + d.precio * d.meses, 0);
+  const lista  = insDetalles.reduce((s, d) => s + (d.precioLista ?? d.precio) * d.meses, 0);
+  const rebaja = Math.max(lista - sub, 0);   // descuento hecho en los precios
   const descInput = document.querySelector('#formModal [name="descuento"]');
-  const desc = Number(descInput?.value || 0);
+  const desc  = Number(descInput?.value || 0);  // descuento extra sobre el total
   const total = Math.max(sub - desc, 0);
+
   const el = document.getElementById('totalIns');
-  if (el) el.innerHTML = `${util.bs(total)} <small>subtotal ${util.bs(sub)} − desc. ${util.bs(desc)}</small>`;
+  if (el) {
+    el.innerHTML = `${util.bs(total)} <small>subtotal ${util.bs(sub)}` +
+      (rebaja > 0 ? ` · precio especial −${util.bs(rebaja)}` : '') +
+      (desc > 0 ? ` · desc. −${util.bs(desc)}` : '') + `</small>`;
+  }
 }
 
 async function anularInscripcion(id) {
