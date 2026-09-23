@@ -132,6 +132,8 @@ img { max-width: 100%; }
 }
 .sidebar .usuario strong { color: var(--texto); display: block; }
 .sidebar .usuario button { margin-top: 10px; width: 100%; justify-content: center; }
+.sidebar .version { margin-top: 10px; text-align: center; font-size: 11px;
+                    color: var(--texto-suave); opacity: .65; letter-spacing: .08em; }
 
 .contenido { padding: 30px 34px; }
 .contenido header.cabecera { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 24px; }
@@ -329,7 +331,7 @@ tr:hover td { background: var(--negro-suave); }
 }
 
 /* Teléfonos muy angostos: una sola tarjeta por fila */
-@media (max-width: 420px) {
+@media (max-width: 359px) {
   .tarjetas { grid-template-columns: 1fr; }
 }
 
@@ -373,16 +375,16 @@ tr:hover td { background: var(--negro-suave); }
    ============================================================ */
 @media (max-width: 760px) {
 
-  table.tabla-tarjetas,
-  table.tabla-tarjetas tbody,
-  table.tabla-tarjetas tr,
-  table.tabla-tarjetas td { display: block; width: 100%; }
+  table,
+  table tbody,
+  table tr,
+  table td { display: block; width: 100%; }
 
-  table.tabla-tarjetas { min-width: 0; border-collapse: separate; }
-  table.tabla-tarjetas thead { display: none; }   /* los títulos van en cada celda */
+  table { min-width: 0; border-collapse: separate; }
+  table thead { display: none; }   /* los títulos van en cada celda */
 
   /* Cada fila es una tarjeta */
-  table.tabla-tarjetas tr {
+  table tr {
     background: var(--negro-suave);
     border: 1px solid var(--borde);
     border-left: 3px solid var(--rojo);
@@ -390,10 +392,10 @@ tr:hover td { background: var(--negro-suave); }
     padding: 12px 14px;
     margin-bottom: 12px;
   }
-  table.tabla-tarjetas tr:hover td { background: transparent; }
+  table tr:hover td { background: transparent; }
 
   /* Cada celda: etiqueta a la izquierda, valor a la derecha */
-  table.tabla-tarjetas td {
+  table td {
     border: none;
     padding: 6px 0;
     display: flex; align-items: center; gap: 14px;
@@ -403,9 +405,9 @@ tr:hover td { background: var(--negro-suave); }
     font-size: 15px;
     min-height: 0;
   }
-  table.tabla-tarjetas td + td { border-top: 1px dashed rgba(255,255,255,.07); }
+  table td + td { border-top: 1px dashed rgba(255,255,255,.07); }
 
-  table.tabla-tarjetas td::before {
+  table td::before {
     content: attr(data-etiqueta);
     flex: 0 0 auto; text-align: left;
     font-size: 11px; font-weight: 700; letter-spacing: .07em;
@@ -413,41 +415,43 @@ tr:hover td { background: var(--negro-suave); }
   }
 
   /* Celdas sin título (avatar, botones): ocupan la fila entera */
-  table.tabla-tarjetas td[data-etiqueta=""] { justify-content: flex-start; text-align: left; }
-  table.tabla-tarjetas td[data-etiqueta=""]::before { content: none; }
-  table.tabla-tarjetas td[data-etiqueta=""]:empty { display: none; }
+  table td[data-etiqueta=""],
+  table td:not([data-etiqueta]) { justify-content: flex-start; text-align: left; }
+  table td[data-etiqueta=""]::before,
+  table td:not([data-etiqueta])::before { content: none; }
+  table td[data-etiqueta=""]:empty { display: none; }
 
   /* La primera celda suele ser la foto: va arriba, sin línea divisoria */
-  table.tabla-tarjetas td:first-child { padding-top: 0; }
+  table td:first-child { padding-top: 0; }
 
   /* Botones de acción: grandes y separados, fáciles de tocar */
-  table.tabla-tarjetas td.acciones {
+  table td.acciones {
     justify-content: flex-end; gap: 8px;
     margin-top: 6px; padding-top: 12px;
     border-top: 1px solid var(--borde);
   }
-  table.tabla-tarjetas td.acciones button {
+  table td.acciones button {
     font-size: 20px; padding: 10px 16px;
     background: var(--negro-panel); border: 1px solid var(--borde); border-radius: 8px;
   }
-  table.tabla-tarjetas td.acciones .btn { padding: 10px 18px; font-size: 15px; }
+  table td.acciones .btn { padding: 10px 18px; font-size: 15px; }
 
   /* El avatar se ve un poco más grande dentro de la tarjeta */
-  table.tabla-tarjetas .avatar { width: 48px; height: 48px; font-size: 17px; }
+  table .avatar { width: 48px; height: 48px; font-size: 17px; }
 
   /* Mensajes de "no hay datos" ocupando toda la fila */
-  table.tabla-tarjetas td[colspan] { justify-content: center; text-align: center; }
-  table.tabla-tarjetas td[colspan]::before { content: none; }
+  table td[colspan] { justify-content: center; text-align: center; }
+  table td[colspan]::before { content: none; }
 
   /* --- Otros ajustes para no desplazarse de lado --- */
   body { overflow-x: hidden; }
   /* Sin esto la columna no se encoge por debajo de su contenido
      y empuja la pantalla hacia los lados en teléfonos angostos */
-  .app, .contenido, .panel, table.tabla-tarjetas tr, table.tabla-tarjetas td { min-width: 0; }
+  .app, .contenido, .panel, table tr, table td { min-width: 0; }
   .contenido { padding: 14px 14px 28px; }
 
   /* Los botones de acción bajan de línea si no entran */
-  table.tabla-tarjetas td.acciones { flex-wrap: wrap; }
+  table td.acciones { flex-wrap: wrap; }
   .tarjeta .valor { font-size: 26px; }
   .panel h3 { font-size: 18px; }
 
@@ -459,8 +463,8 @@ tr:hover td { background: var(--negro-suave); }
 
 /* Teléfonos muy angostos (iPhone SE y similares) */
 @media (max-width: 380px) {
-  table.tabla-tarjetas td.acciones button { font-size: 18px; padding: 9px 12px; }
-  table.tabla-tarjetas td { font-size: 14px; gap: 10px; }
-  table.tabla-tarjetas td::before { font-size: 10px; }
+  table td.acciones button { font-size: 18px; padding: 9px 12px; }
+  table td { font-size: 14px; gap: 10px; }
+  table td::before { font-size: 10px; }
   .contenido header.cabecera h2 { font-size: 23px; }
 }

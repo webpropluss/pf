@@ -9,7 +9,7 @@
 
 // ⚠ Al subir cambios al sitio, sube este número (v2, v3...) para
 //    forzar que todos los celulares tomen la versión nueva.
-const VERSION = 'primefit-v4';
+const VERSION = 'primefit-v5';
 
 // Archivos base de la app (se guardan al instalar)
 const ARCHIVOS = [
@@ -68,7 +68,9 @@ self.addEventListener('fetch', (e) => {
   if (new URL(req.url).origin !== self.location.origin) return;
 
   e.respondWith(
-    fetch(req)
+    // cache: 'reload' evita que el navegador entregue una copia vieja suya
+    fetch(req, { cache: 'reload' })
+      .catch(() => fetch(req))
       .then((resp) => {
         // Guardar una copia fresca para cuando no haya internet
         if (resp && resp.ok) {
@@ -79,11 +81,11 @@ self.addEventListener('fetch', (e) => {
       })
       .catch(async () => {
         // Sin internet: usar la copia guardada
-        const guardado = await caches.match(req);
+        const guardado = await caches.match(req, { ignoreSearch: true });
         if (guardado) return guardado;
         // Si era una navegación, mostrar al menos el login
         if (req.mode === 'navigate') {
-          const inicio = await caches.match('./index.html');
+          const inicio = await caches.match('./index.html', { ignoreSearch: true });
           if (inicio) return inicio;
         }
         return Response.error();
