@@ -57,8 +57,16 @@
   <script src="js/auth.js"></script>
   <script src="js/pwa.js"></script>
   <script>
-    // Si ya hay sesión activa, entrar directo a la aplicación
-    sesionActual().then(s => { if (s) location.href = 'app.html'; });
+    // Si ya hay sesión activa, entrar directo a la aplicación.
+    // replace() evita que el login quede en el historial del navegador.
+    function irSiHaySesion() {
+      sesionActual().then(s => { if (s) location.replace('app.html'); });
+    }
+    irSiHaySesion();
+
+    // El teléfono puede restaurar esta página desde su caché (al deslizar
+    // "atrás"), sin volver a ejecutar los scripts: aquí se vuelve a revisar.
+    window.addEventListener('pageshow', (e) => { if (e.persisted) irSiHaySesion(); });
 
     document.getElementById('formLogin').addEventListener('submit', async (e) => {
       e.preventDefault();

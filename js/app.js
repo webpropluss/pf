@@ -27,7 +27,17 @@ const modulos = {
   configuracion: { titulo: 'Configuración', cargar: cargarConfiguracion },
 };
 
-function abrirModulo(nombre) {
+let moduloActual = null;
+let pilaModulos = [];   // por dónde pasó el usuario, para el gesto "atrás"
+
+function abrirModulo(nombre, esRetroceso = false) {
+  // Guardar de dónde venimos, salvo cuando ya estamos retrocediendo
+  if (!esRetroceso && moduloActual && moduloActual !== nombre) {
+    pilaModulos.push(moduloActual);
+    if (pilaModulos.length > 20) pilaModulos.shift();
+  }
+  moduloActual = nombre;
+
   document.querySelectorAll('.nav-item').forEach(i =>
     i.classList.toggle('activo', i.dataset.modulo === nombre));
 
@@ -42,6 +52,7 @@ function abrirModulo(nombre) {
   }
   contenido.innerHTML = `<p class="cargando">Cargando ${mod.titulo}…</p>`;
   mod.cargar(contenido);
+  window.scrollTo(0, 0);
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -63,11 +74,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     }));
 
   abrirModulo('dashboard');
+  configurarGestoAtras();
 
   // "Latido" para mantener la base despierta (no se suspende por inactividad).
   // Falla en silencio si la tabla ping aún no existe.
   db.rpc('ping_keepalive').then(() => {}).catch(() => {});
 });
+
+/**
+ * El gesto de deslizar hacia atrás (o el botón ← del teléfono) ya NO saca de
+ * la aplicación: navega dentro de ella. Antes salía a la pantalla de login y
+ * parecía que se había cerrado la sesión.
+ *
+ * Orden de lo que hace "atrás":
+ *   1. cierra el formulario abierto,
+ *   2. cierra el menú lateral,
+ *   3. vuelve al módulo anterior,
+ *   4. si ya está en el Dashboard, se queda ahí.
+ * Para salir se usa el botón "Cerrar sesión".
+ */
+function configurarGestoAtras() {
+  history.pushState({ pf: 1 }, '');
+
+  window.addEventListener('popstate', () => {
+    if (document.getElementById('modalActivo')) {
+      cerrarModal();
+    } else if (document.querySelector('.sidebar')?.classList.contains('abierto')) {
+      cerrarMenuMovil();
+    } else if (pilaModulos.length) {
+      abrirModulo(pilaModulos.pop(), true);
+    }
+    // Reponer siempre el estado: así el "atrás" nunca abandona la aplicación
+    history.pushState({ pf: 1 }, '');
+  });
+}
 
 // ---------- Menú lateral en móviles ----------
 function alternarMenuMovil() {

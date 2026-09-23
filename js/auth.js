@@ -22,8 +22,9 @@ async function iniciarSesion(email, clave) {
 
 /** Cierra la sesión y vuelve al login. */
 async function cerrarSesion() {
+  if (!confirm('¿Cerrar sesión?')) return;
   await db.auth.signOut();
-  location.href = 'index.html';
+  location.replace('index.html');   // replace: el panel no queda en el historial
 }
 
 /**
@@ -32,7 +33,7 @@ async function cerrarSesion() {
  */
 async function requerirSesion() {
   const sesion = await sesionActual();
-  if (!sesion) { location.href = 'index.html'; return null; }
+  if (!sesion) { location.replace('index.html'); return null; }
 
   const { data: perfil } = await db
     .from('perfiles')
@@ -42,7 +43,7 @@ async function requerirSesion() {
 
   if (!perfil || !perfil.activo) {
     await db.auth.signOut();
-    location.href = 'index.html';
+    location.replace('index.html');
     return null;
   }
   return perfil;

@@ -85,3 +85,44 @@ async function siguienteCodigo(tabla, prefijo) {
   const { count } = await db.from(tabla).select('id', { count: 'exact', head: true });
   return `${prefijo}-${String((count || 0) + 1).padStart(3, '0')}`;
 }
+
+// ============================================================
+// TABLAS EN EL TELÉFONO
+// En pantallas chicas las tablas se muestran como tarjetas, una
+// debajo de otra, para no tener que desplazarse de lado.
+//
+// Funciona solo: toma los títulos del encabezado y se los pega a
+// cada celda como etiqueta. Sirve para todos los módulos, incluso
+// los que se agreguen después.
+// ============================================================
+
+function adaptarTablasMovil(raiz = document) {
+  raiz.querySelectorAll('table').forEach(tabla => {
+    const titulos = [...tabla.querySelectorAll('thead th')].map(th => th.textContent.trim());
+    if (!titulos.length) return;
+    tabla.classList.add('tabla-tarjetas');
+
+    tabla.querySelectorAll('tbody tr').forEach(fila => {
+      [...fila.children].forEach((celda, i) => {
+        if (celda.hasAttribute('data-etiqueta')) return;
+        celda.setAttribute('data-etiqueta', titulos[i] || '');
+      });
+    });
+  });
+}
+
+// Vigilar la pantalla: cada vez que un módulo dibuja o redibuja una
+// tabla, se le ponen las etiquetas automáticamente.
+(function vigilarTablas() {
+  const aplicar = () => {
+    observador.disconnect();
+    adaptarTablasMovil();
+    observador.observe(document.body, { childList: true, subtree: true });
+  };
+  const observador = new MutationObserver(aplicar);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', aplicar);
+  } else {
+    aplicar();
+  }
+})();

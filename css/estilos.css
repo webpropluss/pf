@@ -231,10 +231,11 @@ tr:hover td { background: var(--negro-suave); }
 .detalle-linea > button { grid-column: 3; }
 .detalle-linea label .subtexto { font-size: 11px; text-transform: none; letter-spacing: 0; }
 
-/* Que los importes no se partan en dos líneas */
-.detalle-linea + p + #tablaDetalles td { white-space: nowrap; }
-#tablaDetalles td, #tablaDetalles th { white-space: nowrap; }
-#tablaDetalles td:first-child { white-space: normal; }
+/* Que los importes no se partan en dos líneas (solo en pantallas grandes) */
+@media (min-width: 761px) {
+  #tablaDetalles td, #tablaDetalles th { white-space: nowrap; }
+  #tablaDetalles td:first-child { white-space: normal; }
+}
 #tablaDetalles .pill { margin-top: 4px; }
 .total-grande { font-family: var(--fuente-titulo); font-size: 34px; font-weight: 800; line-height: 1.15; }
 .total-grande small { display: block; }
@@ -302,9 +303,8 @@ tr:hover td { background: var(--negro-suave); }
   .tarjetas { grid-template-columns: repeat(2, 1fr); gap: 12px; }
   .tarjeta .valor { font-size: 30px; }
 
-  /* Tablas: permitir desplazamiento horizontal para no romper el diseño */
-  .panel { padding: 14px; overflow-x: auto; }
-  table { min-width: 560px; }
+  /* Tablas convertidas en tarjetas: NUNCA hay que desplazarse de lado */
+  .panel { padding: 14px; overflow-x: visible; }
 
   /* Formularios y modales a una sola columna */
   .modal { max-width: 100%; padding: 18px; }
@@ -339,14 +339,14 @@ tr:hover td { background: var(--negro-suave); }
 
 /* Botón flotante "Instalar app" (Android/Chrome) */
 .boton-instalar {
-  position: fixed; z-index: 70;
+  position: fixed; z-index: 45;   /* por debajo de los formularios (50) */
   right: 18px; bottom: calc(18px + env(safe-area-inset-bottom));
   box-shadow: 0 8px 26px rgba(0,0,0,.55);
 }
 
 /* Aviso de instalación para iPhone/iPad */
 .aviso-ios {
-  position: fixed; z-index: 70;
+  position: fixed; z-index: 45;   /* por debajo de los formularios (50) */
   left: 14px; right: 14px; bottom: calc(14px + env(safe-area-inset-bottom));
   background: var(--negro-panel); border: 1px solid var(--rojo);
   border-radius: var(--radio); padding: 16px;
@@ -364,4 +364,103 @@ tr:hover td { background: var(--negro-suave); }
   .contenido   { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
   .login-panel { padding-top: calc(40px + env(safe-area-inset-top)); }
   .sidebar     { padding-top: calc(22px + env(safe-area-inset-top)); }
+}
+
+/* ============================================================
+   TABLAS COMO TARJETAS EN EL TELÉFONO
+   Cada fila se convierte en una tarjeta con sus datos etiquetados,
+   uno debajo de otro. Así no hay que desplazarse de lado nunca.
+   ============================================================ */
+@media (max-width: 760px) {
+
+  table.tabla-tarjetas,
+  table.tabla-tarjetas tbody,
+  table.tabla-tarjetas tr,
+  table.tabla-tarjetas td { display: block; width: 100%; }
+
+  table.tabla-tarjetas { min-width: 0; border-collapse: separate; }
+  table.tabla-tarjetas thead { display: none; }   /* los títulos van en cada celda */
+
+  /* Cada fila es una tarjeta */
+  table.tabla-tarjetas tr {
+    background: var(--negro-suave);
+    border: 1px solid var(--borde);
+    border-left: 3px solid var(--rojo);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+  }
+  table.tabla-tarjetas tr:hover td { background: transparent; }
+
+  /* Cada celda: etiqueta a la izquierda, valor a la derecha */
+  table.tabla-tarjetas td {
+    border: none;
+    padding: 6px 0;
+    display: flex; align-items: center; gap: 14px;
+    justify-content: space-between;
+    white-space: normal;
+    text-align: right;
+    font-size: 15px;
+    min-height: 0;
+  }
+  table.tabla-tarjetas td + td { border-top: 1px dashed rgba(255,255,255,.07); }
+
+  table.tabla-tarjetas td::before {
+    content: attr(data-etiqueta);
+    flex: 0 0 auto; text-align: left;
+    font-size: 11px; font-weight: 700; letter-spacing: .07em;
+    text-transform: uppercase; color: var(--texto-suave);
+  }
+
+  /* Celdas sin título (avatar, botones): ocupan la fila entera */
+  table.tabla-tarjetas td[data-etiqueta=""] { justify-content: flex-start; text-align: left; }
+  table.tabla-tarjetas td[data-etiqueta=""]::before { content: none; }
+  table.tabla-tarjetas td[data-etiqueta=""]:empty { display: none; }
+
+  /* La primera celda suele ser la foto: va arriba, sin línea divisoria */
+  table.tabla-tarjetas td:first-child { padding-top: 0; }
+
+  /* Botones de acción: grandes y separados, fáciles de tocar */
+  table.tabla-tarjetas td.acciones {
+    justify-content: flex-end; gap: 8px;
+    margin-top: 6px; padding-top: 12px;
+    border-top: 1px solid var(--borde);
+  }
+  table.tabla-tarjetas td.acciones button {
+    font-size: 20px; padding: 10px 16px;
+    background: var(--negro-panel); border: 1px solid var(--borde); border-radius: 8px;
+  }
+  table.tabla-tarjetas td.acciones .btn { padding: 10px 18px; font-size: 15px; }
+
+  /* El avatar se ve un poco más grande dentro de la tarjeta */
+  table.tabla-tarjetas .avatar { width: 48px; height: 48px; font-size: 17px; }
+
+  /* Mensajes de "no hay datos" ocupando toda la fila */
+  table.tabla-tarjetas td[colspan] { justify-content: center; text-align: center; }
+  table.tabla-tarjetas td[colspan]::before { content: none; }
+
+  /* --- Otros ajustes para no desplazarse de lado --- */
+  body { overflow-x: hidden; }
+  /* Sin esto la columna no se encoge por debajo de su contenido
+     y empuja la pantalla hacia los lados en teléfonos angostos */
+  .app, .contenido, .panel, table.tabla-tarjetas tr, table.tabla-tarjetas td { min-width: 0; }
+  .contenido { padding: 14px 14px 28px; }
+
+  /* Los botones de acción bajan de línea si no entran */
+  table.tabla-tarjetas td.acciones { flex-wrap: wrap; }
+  .tarjeta .valor { font-size: 26px; }
+  .panel h3 { font-size: 18px; }
+
+  /* Campos y botones más cómodos para el dedo */
+  .campo input, .campo select, .campo textarea,
+  .toolbar input, .toolbar select { font-size: 16px; padding: 13px 14px; }  /* 16px evita el zoom de iOS */
+  .btn { padding: 13px 20px; }
+}
+
+/* Teléfonos muy angostos (iPhone SE y similares) */
+@media (max-width: 380px) {
+  table.tabla-tarjetas td.acciones button { font-size: 18px; padding: 9px 12px; }
+  table.tabla-tarjetas td { font-size: 14px; gap: 10px; }
+  table.tabla-tarjetas td::before { font-size: 10px; }
+  .contenido header.cabecera h2 { font-size: 23px; }
 }
