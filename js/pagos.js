@@ -64,7 +64,9 @@ async function cargarPagos(contenido) {
             <td>${p.metodo}</td>
             <td><strong>${util.bs(p.monto)}</strong></td>
             <td>${p.usuario_nombre || '—'}</td>
-            ${esAdmin ? `<td class="acciones"><button title="Eliminar pago" onclick="eliminarPago(${p.id})">🗑️</button></td>` : ''}
+            ${esAdmin ? `<td class="acciones">${p.pase_dia_id
+                  ? '<span class="subtexto" title="Se elimina desde Pases del día">🎟️</span>'
+                  : `<button title="Eliminar pago" onclick="eliminarPago(${p.id})">🗑️</button>`}</td>` : ''}
           </tr>`).join('')}
         </tbody>
       </table>

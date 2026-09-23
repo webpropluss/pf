@@ -45,7 +45,9 @@ async function cargarInscripciones(contenido) {
                 <td>${estado}</td>
                 <td class="acciones">
                   ${esAdmin && !i.anulada
-                    ? `<button title="Anular (libera las plazas)" onclick="anularInscripcion(${i.id})">🗑️</button>` : ''}
+                    ? `<button title="Anular: libera las plazas y queda registrada" onclick="anularInscripcion(${i.id})">🚫</button>` : ''}
+                  ${esAdmin
+                    ? `<button title="Eliminar definitivamente" onclick="eliminarInscripcion(${i.id}, ${i.numero})">🗑️</button>` : ''}
                 </td>
               </tr>`;
           }).join('')}
@@ -217,6 +219,20 @@ function pintarDetallesIns() {
       (rebaja > 0 ? ` · precio especial −${util.bs(rebaja)}` : '') +
       (desc > 0 ? ` · desc. −${util.bs(desc)}` : '') + `</small>`;
   }
+}
+
+/** Borra la inscripción por completo (para datos de prueba). */
+async function eliminarInscripcion(id, numero) {
+  if (!confirmar(
+    `¿Eliminar la inscripción N° ${numero} para siempre?\n\n` +
+    'Se borran también sus pagos y desaparece de los reportes.\n' +
+    'Las plazas que ocupaba quedarán libres.\n\n' +
+    'Si solo quieres darla de baja conservando el registro, usa 🚫 Anular.')) return;
+
+  const r = await db.rpc('eliminar_inscripcion', { p_inscripcion_id: id });
+  if (r.error) { notificar(r.error.message, true); return; }
+  notificar(`Inscripción N° ${numero} eliminada.`);
+  abrirModulo('inscripciones');
 }
 
 async function anularInscripcion(id) {

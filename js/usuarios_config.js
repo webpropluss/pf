@@ -100,6 +100,10 @@ async function cargarConfiguracion(contenido) {
         </div>
         <div class="campo"><label>Dirección</label><input name="direccion" value="${c.direccion || ''}"></div>
 
+        <div class="campo"><label>Precio sugerido del pase del día (Bs.)</label>
+          <input type="number" name="precio_pase_dia" min="0" step="0.5" value="${c.precio_pase_dia || 25}">
+          <span class="subtexto">Es solo el valor que viene puesto por defecto; se puede cambiar en cada pase.</span></div>
+
         <h3 style="margin:18px 0 12px">📲 Aviso automático de WhatsApp</h3>
         <div class="campo"><label>Enviar el aviso cuántos días antes del vencimiento</label>
           <input type="number" name="dias_aviso_whatsapp" min="1" max="15" value="${c.dias_aviso_whatsapp || 3}"></div>
@@ -118,7 +122,7 @@ async function cargarConfiguracion(contenido) {
   document.getElementById('formConfig').addEventListener('submit', async (e) => {
     e.preventDefault();
     const f = e.target;
-    const datos = ['nombre_gimnasio','telefono','direccion','dias_aviso_whatsapp','mensaje_whatsapp']
+    const datos = ['nombre_gimnasio','telefono','direccion','precio_pase_dia','dias_aviso_whatsapp','mensaje_whatsapp']
       .map(clave => ({ clave, valor: f[clave].value }));
     const r = await db.from('config').upsert(datos);
     if (r.error) { notificar(r.error.message, true); return; }

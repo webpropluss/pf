@@ -25,7 +25,8 @@ async function cargarDisciplinas(contenido) {
               <td>${d.activo ? '<span class="pill pill-verde">Activa</span>' : '<span class="pill pill-rojo">Inactiva</span>'}</td>
               <td class="acciones">
                 <button title="Editar" onclick="dialogoDisciplina(${d.id})">✏️</button>
-                <button title="${d.activo ? 'Desactivar' : 'Reactivar'}" onclick="alternarDisciplina(${d.id}, ${d.activo})">${d.activo ? '🚫' : '♻️'}</button>
+                <button title="${d.activo ? 'Desactivar (se puede reactivar)' : 'Reactivar'}" onclick="alternarDisciplina(${d.id}, ${d.activo})">${d.activo ? '🚫' : '♻️'}</button>
+                <button title="Eliminar definitivamente" onclick="eliminarDisciplina(${d.id}, '${d.nombre.replace(/'/g, '')}')">🗑️</button>
               </td>
             </tr>`).join('')}
         </tbody>
@@ -57,6 +58,27 @@ async function dialogoDisciplina(id) {
     notificar('Disciplina guardada.');
     abrirModulo('disciplinas');
   });
+}
+
+/** Elimina la disciplina si nada la está usando. */
+async function eliminarDisciplina(id, nombre) {
+  const r = verificar(await db.rpc('usos_disciplina', { p_id: id }));
+  const u = Array.isArray(r) ? r[0] : r;
+
+  if ((u?.horarios || 0) + (u?.inscripciones || 0) > 0) {
+    notificar(
+      `No se puede eliminar "${nombre}": ` +
+      [u.horarios ? `${u.horarios} horario(s)` : null,
+       u.inscripciones ? `${u.inscripciones} inscripción(es)` : null]
+        .filter(Boolean).join(' y ') + ' la están usando. Bórralos primero o usa 🚫 Desactivar.', true);
+    return;
+  }
+  if (!confirmar(`¿Eliminar la disciplina "${nombre}" para siempre?`)) return;
+
+  const del = await db.rpc('eliminar_disciplina', { p_id: id });
+  if (del.error) { notificar(del.error.message, true); return; }
+  notificar('Disciplina eliminada.');
+  abrirModulo('disciplinas');
 }
 
 async function alternarDisciplina(id, activo) {
@@ -93,7 +115,8 @@ async function cargarInstructores(contenido) {
               <td>${i.activo ? '<span class="pill pill-verde">Activo</span>' : '<span class="pill pill-rojo">Inactivo</span>'}</td>
               <td class="acciones">
                 <button title="Editar" onclick="dialogoInstructor(${i.id})">✏️</button>
-                <button title="${i.activo ? 'Desactivar' : 'Reactivar'}" onclick="alternarInstructor(${i.id}, ${i.activo})">${i.activo ? '🚫' : '♻️'}</button>
+                <button title="${i.activo ? 'Desactivar (se puede reactivar)' : 'Reactivar'}" onclick="alternarInstructor(${i.id}, ${i.activo})">${i.activo ? '🚫' : '♻️'}</button>
+                <button title="Eliminar definitivamente" onclick="eliminarInstructor(${i.id}, '${i.nombre.replace(/'/g, '')}')">🗑️</button>
               </td>
             </tr>`).join('')}
         </tbody>
@@ -126,6 +149,24 @@ async function dialogoInstructor(id) {
     notificar('Instructor guardado.');
     abrirModulo('instructores');
   });
+}
+
+/** Elimina el instructor si no tiene clases asignadas. */
+async function eliminarInstructor(id, nombre) {
+  const r = verificar(await db.rpc('usos_instructor', { p_id: id }));
+  const u = Array.isArray(r) ? r[0] : r;
+
+  if ((u?.horarios || 0) > 0) {
+    notificar(`No se puede eliminar a ${nombre}: está asignado a ${u.horarios} clase(s). ` +
+              'Cámbiales de instructor o elimina esos horarios primero.', true);
+    return;
+  }
+  if (!confirmar(`¿Eliminar al instructor ${nombre} para siempre?`)) return;
+
+  const del = await db.rpc('eliminar_instructor', { p_id: id });
+  if (del.error) { notificar(del.error.message, true); return; }
+  notificar('Instructor eliminado.');
+  abrirModulo('instructores');
 }
 
 async function alternarInstructor(id, activo) {

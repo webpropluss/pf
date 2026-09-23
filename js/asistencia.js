@@ -46,8 +46,17 @@ async function pasarLista() {
     if (a && !vistos.has(a.id)) { vistos.add(a.id); alumnos.push(a); }
   });
 
+  // Sumar a quienes compraron un pase del día para esa clase y fecha
+  const pases = verificar(await db.from('pases_dia')
+    .select('alumnos(id, nombre, foto_url)')
+    .eq('fecha', fecha).eq('horario_id', horarioId));
+  pases.forEach(p => {
+    const a = p.alumnos;
+    if (a && !vistos.has(a.id)) { vistos.add(a.id); alumnos.push({ ...a, pase: true }); }
+  });
+
   if (!alumnos.length) {
-    cont.innerHTML = '<p class="cargando">No hay alumnos con inscripción vigente en esta clase para esa fecha.</p>';
+    cont.innerHTML = '<p class="cargando">No hay alumnos con inscripción vigente ni pases del día en esta clase para esa fecha.</p>';
     return;
   }
 
@@ -65,7 +74,8 @@ async function pasarLista() {
         ${alumnos.map(a => `
           <tr>
             <td>${avatarHtml(a.nombre, a.foto_url)}</td>
-            <td><strong>${a.nombre}</strong></td>
+            <td><strong>${a.nombre}</strong>
+                ${a.pase ? ' <span class="pill pill-amarillo">Pase del día</span>' : ''}</td>
             <td><input type="checkbox" class="check-grande" data-alumno="${a.id}"
                  ${estadoDe[a.id] === undefined || estadoDe[a.id] ? 'checked' : ''}></td>
           </tr>`).join('')}

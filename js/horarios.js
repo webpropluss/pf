@@ -35,7 +35,8 @@ async function cargarHorarios(contenido) {
               <td class="acciones">
                 <button title="Editar" onclick="dialogoHorario(${h.id})">✏️</button>
                 <button title="Ajustar cupo" onclick="dialogoAjusteCupo(${h.id}, ${h.cupo}, ${h.inscritos})">🎚️</button>
-                <button title="${h.activo ? 'Desactivar' : 'Reactivar'}" onclick="alternarHorario(${h.id}, ${h.activo})">${h.activo ? '🚫' : '♻️'}</button>
+                <button title="${h.activo ? 'Desactivar (se puede reactivar)' : 'Reactivar'}" onclick="alternarHorario(${h.id}, ${h.activo})">${h.activo ? '🚫' : '♻️'}</button>
+                <button title="Eliminar definitivamente" onclick="eliminarHorario(${h.id})">🗑️</button>
               </td>
             </tr>`).join('')}
         </tbody>
@@ -114,6 +115,33 @@ async function dialogoAjusteCupo(id, cupo, inscritos) {
     notificar('Cupo ajustado.');
     abrirModulo('horarios');
   }, 'Ajustar');
+}
+
+/** Elimina el horario si no tiene inscripciones. */
+async function eliminarHorario(id) {
+  const r = verificar(await db.rpc('usos_horario', { p_id: id }));
+  const u = Array.isArray(r) ? r[0] : r;
+
+  if ((u?.inscripciones || 0) > 0) {
+    notificar(`No se puede eliminar: este horario tiene ${u.inscripciones} inscripción(es). ` +
+              'Elimínalas primero desde Inscripciones, o usa 🚫 Desactivar.', true);
+    return;
+  }
+
+  const avisos = [
+    u?.asistencias ? `• se borrarán ${u.asistencias} registro(s) de asistencia` : null,
+    u?.pases ? `• ${u.pases} pase(s) del día quedarán como "entrada libre"` : null,
+  ].filter(Boolean);
+
+  const mensaje = avisos.length
+    ? `¿Eliminar este horario para siempre?\n\n${avisos.join('\n')}`
+    : '¿Eliminar este horario para siempre?';
+  if (!confirmar(mensaje)) return;
+
+  const del = await db.rpc('eliminar_horario', { p_id: id });
+  if (del.error) { notificar(del.error.message, true); return; }
+  notificar('Horario eliminado.');
+  abrirModulo('horarios');
 }
 
 async function alternarHorario(id, activo) {

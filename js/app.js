@@ -20,6 +20,7 @@ const modulos = {
   instructores:  { titulo: 'Instructores',  cargar: cargarInstructores },
   inscripciones: { titulo: 'Inscripciones', cargar: cargarInscripciones },
   pagos:         { titulo: 'Pagos',         cargar: cargarPagos },
+  pases:         { titulo: 'Pases del día', cargar: cargarPases },
   asistencia:    { titulo: 'Asistencia',    cargar: cargarAsistencia },
   reportes:      { titulo: 'Reportes',      cargar: cargarReportes },
   usuarios:      { titulo: 'Usuarios',      cargar: cargarUsuarios },
