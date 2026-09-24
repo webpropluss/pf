@@ -5,6 +5,7 @@
 
 let insDetalles = [];   // líneas de la nueva inscripción
 let insCatalogo = { disciplinas: [], horarios: [] };
+let pagoEditadoAMano = false;   // si tocan "Paga ahora", deja de seguir al total
 
 async function cargarInscripciones(contenido) {
   const [inscripciones, pagos] = await Promise.all([
@@ -45,7 +46,7 @@ async function cargarInscripciones(contenido) {
                 <td>${estado}</td>
                 <td class="acciones">
                   ${esAdmin && !i.anulada
-                    ? `<button title="Anular: libera las plazas y queda registrada" onclick="anularInscripcion(${i.id})">🚫</button>` : ''}
+                    ? `<button title="Anular: libera la plaza y conserva el pago (para quien se fue y vuelve con fechas nuevas)" onclick="anularInscripcion(${i.id})">🚫</button>` : ''}
                   ${esAdmin
                     ? `<button title="Eliminar definitivamente" onclick="eliminarInscripcion(${i.id}, ${i.numero})">🗑️</button>` : ''}
                 </td>
@@ -66,6 +67,7 @@ async function nuevaInscripcion() {
   ]);
   insCatalogo = { disciplinas: disciplinas.data || [], horarios: horarios.data || [] };
   insDetalles = [];
+  pagoEditadoAMano = false;
 
   const hoy = util.hoy();
   const fin = new Date(); fin.setMonth(fin.getMonth() + 1);
@@ -108,6 +110,14 @@ async function nuevaInscripcion() {
           <option>Efectivo</option><option>QR</option><option>Tarjeta</option><option>Transferencia</option>
         </select></div>
     </div>
+
+    <h3 style="font-size:18px;margin:6px 0 10px">Cobro</h3>
+    <div class="campo"><label>Paga ahora (Bs.)</label>
+      <input type="number" name="pago_inicial" min="0" step="0.5" value="0"
+             oninput="pagoEditadoAMano = true; pintarDetallesIns()">
+      <span class="subtexto">Viene con el total puesto. Si paga menos, la diferencia
+        queda como saldo pendiente en Pagos. Si pone 0, no se cobra nada ahora.</span></div>
+
     <div class="total-grande" id="totalIns">Bs. 0.00 <small>total</small></div>
   `, async (form) => {
     // Si eligió disciplina y horario pero no tocó "＋ Agregar clase",
@@ -129,6 +139,7 @@ async function nuevaInscripcion() {
       p_descuento: Number(form.descuento.value || 0),
       p_metodo_pago: form.metodo_pago.value,
       p_usuario_nombre: perfilActual?.nombre || '',
+      p_pago_inicial: Number(form.pago_inicial?.value || 0),
       p_detalles: insDetalles.map(d => ({
         disciplina_id: d.disciplina_id, horario_id: d.horario_id,
         precio_mensual: d.precio,                        // lo que realmente se le cobra
@@ -136,7 +147,10 @@ async function nuevaInscripcion() {
         meses: d.meses,
       })),
     }));
-    notificar(`Inscripción registrada (INS-${id}). Las plazas quedaron ocupadas.`);
+    const cobrado = Number(form.pago_inicial?.value || 0);
+    notificar(cobrado > 0
+      ? `Inscripción registrada (INS-${id}) y cobro de ${util.bs(cobrado)} anotado.`
+      : `Inscripción registrada (INS-${id}). Queda pendiente de pago.`);
     abrirModulo('inscripciones');
   }, 'Guardar inscripción');
   pintarDetallesIns();
@@ -234,11 +248,21 @@ function pintarDetallesIns() {
   const desc  = Number(descInput?.value || 0);  // descuento extra sobre el total
   const total = Math.max(sub - desc, 0);
 
+  // Mientras no lo toquen a mano, el cobro sigue al total
+  const campoPago = document.querySelector('#formModal [name="pago_inicial"]');
+  if (campoPago && !pagoEditadoAMano) campoPago.value = total;
+  const paga = Math.min(Number(campoPago?.value || 0), total);
+  const saldo = Math.max(total - paga, 0);
+
   const el = document.getElementById('totalIns');
   if (el) {
     el.innerHTML = `${util.bs(total)} <small>subtotal ${util.bs(sub)}` +
       (rebaja > 0 ? ` · precio especial −${util.bs(rebaja)}` : '') +
-      (desc > 0 ? ` · desc. −${util.bs(desc)}` : '') + `</small>`;
+      (desc > 0 ? ` · desc. −${util.bs(desc)}` : '') +
+      `<br>paga ahora ${util.bs(paga)}` +
+      (saldo > 0 ? ` · <span style="color:var(--amarillo)">queda debiendo ${util.bs(saldo)}</span>`
+                 : ' · <span style="color:var(--verde)">pagado completo</span>') +
+      `</small>`;
   }
 }
 
@@ -246,9 +270,11 @@ function pintarDetallesIns() {
 async function eliminarInscripcion(id, numero) {
   if (!confirmar(
     `¿Eliminar la inscripción N° ${numero} para siempre?\n\n` +
-    'Se borran también sus pagos y desaparece de los reportes.\n' +
+    '⚠ Se borran TAMBIÉN SUS PAGOS y desaparecen de los reportes.\n' +
     'Las plazas que ocupaba quedarán libres.\n\n' +
-    'Si solo quieres darla de baja conservando el registro, usa 🚫 Anular.')) return;
+    'Úsalo solo si fue un error o una prueba.\n' +
+    'Si el alumno dejó de venir (aunque haya pagado), usa 🚫 Anular:\n' +
+    'libera la plaza y conserva el dinero cobrado.')) return;
 
   const r = await db.rpc('eliminar_inscripcion', { p_inscripcion_id: id });
   if (r.error) { notificar(r.error.message, true); return; }
@@ -257,9 +283,14 @@ async function eliminarInscripcion(id, numero) {
 }
 
 async function anularInscripcion(id) {
-  if (!confirmar('¿Anular esta inscripción? Se liberarán sus plazas y se eliminarán sus pagos.')) return;
+  if (!confirmar(
+    '¿Anular esta inscripción?\n\n' +
+    '• Se libera la plaza en la clase.\n' +
+    '• El dinero que ya pagó SE CONSERVA en los reportes.\n' +
+    '• Podrás hacerle una inscripción nueva con otras fechas.\n\n' +
+    'Es lo correcto cuando el alumno deja de venir y después vuelve.')) return;
   const r = await db.rpc('anular_inscripcion', { p_inscripcion_id: id, p_usuario_nombre: perfilActual?.nombre || '' });
   if (r.error) { notificar(r.error.message, true); return; }
-  notificar('Inscripción anulada. Plazas liberadas.');
+  notificar('Inscripción anulada. Plaza liberada y el pago se conservó.');
   abrirModulo('inscripciones');
 }
