@@ -63,6 +63,11 @@ img { max-width: 100%; }
 }
 .campo input:focus, .campo select:focus, .campo textarea:focus { border-color: var(--rojo); }
 
+/* Sin esto, un desplegable con texto largo ensancha toda la fila
+   y empuja los campos y botones fuera de la pantalla. */
+.campo, .fila > *, .detalle-linea > * { min-width: 0; }
+.campo input, .campo select, .campo textarea { width: 100%; max-width: 100%; }
+
 /* ============================================================
    LOGIN
    ============================================================ */
@@ -232,6 +237,7 @@ tr:hover td { background: var(--negro-suave); }
 .detalle-linea > .campo:nth-of-type(4) { grid-column: 2; }
 .detalle-linea > button { grid-column: 3; }
 .detalle-linea label .subtexto { font-size: 11px; text-transform: none; letter-spacing: 0; }
+.solo-movil { display: none; }
 
 /* Que los importes no se partan en dos líneas (solo en pantallas grandes) */
 @media (min-width: 761px) {
@@ -312,12 +318,17 @@ tr:hover td { background: var(--negro-suave); }
   .modal { max-width: 100%; padding: 18px; }
   .modal .fila { grid-template-columns: 1fr; }
   /* Disciplina y Horario a lo ancho; Precio, Meses y ＋ en una fila */
-  .detalle-linea { grid-template-columns: 1fr 1fr auto; gap: 8px; }
-  .detalle-linea > .campo:nth-of-type(1) { grid-column: 1 / -1; }
+  .detalle-linea { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .detalle-linea > .campo:nth-of-type(1),
   .detalle-linea > .campo:nth-of-type(2) { grid-column: 1 / -1; }
   .detalle-linea > .campo:nth-of-type(3) { grid-column: 1; }
   .detalle-linea > .campo:nth-of-type(4) { grid-column: 2; }
-  .detalle-linea > button { grid-column: 3; }
+  /* El botón, a todo el ancho y con texto: no se puede pasar por alto */
+  .detalle-linea > button {
+    grid-column: 1 / -1; width: 100%; justify-content: center;
+    margin-top: 4px; padding: 14px;
+  }
+  .solo-movil { display: inline; }
 
   /* Barra de herramientas apilada y botones a lo ancho */
   .toolbar { flex-direction: column; align-items: stretch; }

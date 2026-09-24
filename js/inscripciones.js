@@ -94,7 +94,8 @@ async function nuevaInscripcion() {
         <input type="number" id="inpPrecio" min="0" step="0.5" placeholder="0.00"></div>
       <div class="campo" style="margin:0"><label>Meses</label>
         <input type="number" id="inpMeses" min="1" value="1"></div>
-      <button type="button" class="btn btn-oscuro" onclick="agregarDetalleIns()">＋</button>
+      <button type="button" class="btn btn-oscuro" onclick="agregarDetalleIns()"
+              title="Agregar esta clase a la inscripción">＋<span class="solo-movil"> Agregar clase</span></button>
     </div>
     <p class="subtexto" id="avisoPrecio" style="margin:-4px 0 12px"></p>
     <div id="tablaDetalles"></div>
@@ -109,7 +110,18 @@ async function nuevaInscripcion() {
     </div>
     <div class="total-grande" id="totalIns">Bs. 0.00 <small>total</small></div>
   `, async (form) => {
-    if (!insDetalles.length) throw new Error('Agrega al menos una disciplina con su horario.');
+    // Si eligió disciplina y horario pero no tocó "＋ Agregar clase",
+    // se agrega sola: es lo que quería hacer.
+    if (!insDetalles.length) agregarDetalleIns(true);
+
+    if (!insDetalles.length) {
+      const hayDisciplina = !!document.getElementById('selDisciplina')?.value;
+      const hayHorario    = !!document.getElementById('selHorario')?.value;
+      throw new Error(
+        !hayDisciplina ? 'Elige la disciplina y su horario, y toca "＋ Agregar clase".'
+        : !hayHorario  ? 'Falta elegir el horario de la clase.'
+        : 'No se pudo agregar la clase. Revisa el precio y vuelve a intentar.');
+    }
     const id = verificar(await db.rpc('crear_inscripcion', {
       p_alumno_id: Number(form.alumno_id.value),
       p_fecha_inicio: form.fecha_inicio.value,
@@ -153,12 +165,20 @@ function filtrarHorariosIns() {
   }
 }
 
-function agregarDetalleIns() {
+/**
+ * Agrega la clase elegida a la lista de la inscripción.
+ * @param {boolean} automatico  true cuando se llama sola al guardar:
+ *                              en ese caso no muestra avisos sueltos.
+ * @returns {boolean} si la clase quedó agregada
+ */
+function agregarDetalleIns(automatico = false) {
+  const avisar = (m) => { if (!automatico) notificar(m, true); };
+
   const disId = Number(document.getElementById('selDisciplina').value);
   const horId = Number(document.getElementById('selHorario').value);
   const meses = Math.max(1, Number(document.getElementById('inpMeses').value || 1));
-  if (!disId || !horId) { notificar('Elige la disciplina y el horario.', true); return; }
-  if (insDetalles.some(d => d.horario_id === horId)) { notificar('Ese horario ya está en la lista.', true); return; }
+  if (!disId || !horId) { avisar('Elige la disciplina y el horario.'); return false; }
+  if (insDetalles.some(d => d.horario_id === horId)) { avisar('Ese horario ya está en la lista.'); return false; }
 
   const dis = insCatalogo.disciplinas.find(d => d.id === disId);
   const hor = insCatalogo.horarios.find(h => h.id === horId);
@@ -168,9 +188,9 @@ function agregarDetalleIns() {
   const campoPrecio = document.getElementById('inpPrecio').value;
   const precio = campoPrecio === '' ? precioLista : Number(campoPrecio);
 
-  if (isNaN(precio) || precio < 0) { notificar('El precio no es válido.', true); return; }
+  if (isNaN(precio) || precio < 0) { avisar('El precio no es válido.'); return false; }
   if (precio > precioLista) {
-    if (!confirmar(`El precio ${util.bs(precio)} es MAYOR al normal (${util.bs(precioLista)}). ¿Continuar igual?`)) return;
+    if (!confirmar(`El precio ${util.bs(precio)} es MAYOR al normal (${util.bs(precioLista)}). ¿Continuar igual?`)) return false;
   }
 
   insDetalles.push({
@@ -181,6 +201,7 @@ function agregarDetalleIns() {
   document.getElementById('inpPrecio').value = '';
   document.getElementById('avisoPrecio').textContent = '';
   pintarDetallesIns();
+  return true;
 }
 
 function quitarDetalleIns(i) { insDetalles.splice(i, 1); pintarDetallesIns(); }
@@ -204,7 +225,7 @@ function pintarDetallesIns() {
           <td class="acciones"><button type="button" onclick="quitarDetalleIns(${i})">✖️</button></td>
         </tr>`; }).join('')}
       </tbody>
-    </table>` : '<p class="subtexto" style="margin-bottom:14px">Sin clases agregadas todavía.</p>';
+    </table>` : '<p class="subtexto" style="margin-bottom:14px">Sin clases agregadas todavía · elige disciplina y horario arriba, y toca <strong>＋ Agregar clase</strong>.</p>';
 
   const sub    = insDetalles.reduce((s, d) => s + d.precio * d.meses, 0);
   const lista  = insDetalles.reduce((s, d) => s + (d.precioLista ?? d.precio) * d.meses, 0);

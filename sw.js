@@ -9,7 +9,7 @@
 
 // ⚠ Al subir cambios al sitio, sube este número (v2, v3...) para
 //    forzar que todos los celulares tomen la versión nueva.
-const VERSION = 'primefit-v5';
+const VERSION = 'primefit-v7';
 
 // Archivos base de la app (se guardan al instalar)
 const ARCHIVOS = [
