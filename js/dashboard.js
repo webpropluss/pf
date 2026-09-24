@@ -16,16 +16,33 @@ async function cargarDashboard(contenido) {
   const plantilla = C.mensaje_whatsapp ||
     'Hola {nombre} 👋 Te saludamos de Prime Fit 🥊. Tu mensualidad vence el {fecha}. ¡Renueva a tiempo! 💪';
 
+  const hoyISO = util.hoy();
+
   // Consultas en paralelo
-  const [alumnos, horarios, pagosMes, inscripciones, porVencer] = await Promise.all([
+  const [alumnos, pagosMes, inscripciones, porVencer, pasesHoy, ventasHoy] = await Promise.all([
     db.from('alumnos').select('id', { count: 'exact', head: true }).eq('activo', true),
-    db.from('horarios').select('id', { count: 'exact', head: true }).eq('activo', true),
     db.from('pagos').select('monto, fecha').gte('fecha', inicioMes),
     db.from('inscripciones').select('id, total, anulada').eq('anulada', false),
     db.rpc('inscripciones_por_vencer', { p_dias: diasAviso }),
+    db.from('pases_dia').select('monto').eq('fecha', hoyISO),
+    db.from('ventas').select('total, venta_detalles(cantidad)')
+      .eq('anulada', false).gte('fecha', hoyISO + 'T00:00:00').lte('fecha', hoyISO + 'T23:59:59'),
   ]);
 
   const ingresosMes = (pagosMes.data || []).reduce((s, p) => s + Number(p.monto), 0);
+  const ingresosHoy = (pagosMes.data || [])
+    .filter(p => String(p.fecha).slice(0, 10) === hoyISO)
+    .reduce((s, p) => s + Number(p.monto), 0);
+
+  // Pases del día de hoy
+  const nPases = (pasesHoy.data || []).length;
+  const bsPases = (pasesHoy.data || []).reduce((s, p) => s + Number(p.monto), 0);
+
+  // Venta de productos de hoy
+  const nVentas = (ventasHoy.data || []).length;
+  const bsVentas = (ventasHoy.data || []).reduce((s, v) => s + Number(v.total), 0);
+  const artVendidos = (ventasHoy.data || [])
+    .reduce((s, v) => s + (v.venta_detalles || []).reduce((t, d) => t + d.cantidad, 0), 0);
 
   // Pagos pendientes: inscripciones cuyo total supera lo pagado
   let pendientes = 0;
@@ -63,12 +80,22 @@ async function cargarDashboard(contenido) {
         <div class="valor">${alumnos.count ?? 0}</div>
       </div>
       <div class="tarjeta acento">
-        <div class="etiqueta">Horarios programados</div>
-        <div class="valor">${horarios.count ?? 0}</div>
+        <div class="etiqueta">Ingresos de hoy</div>
+        <div class="valor">${util.bs(ingresosHoy)}</div>
       </div>
       <div class="tarjeta acento">
         <div class="etiqueta">Ingresos del mes</div>
         <div class="valor">${util.bs(ingresosMes)}</div>
+      </div>
+      <div class="tarjeta acento">
+        <div class="etiqueta">Pases del día · hoy</div>
+        <div class="valor">${nPases}</div>
+        <div class="subtexto">${util.bs(bsPases)}</div>
+      </div>
+      <div class="tarjeta acento">
+        <div class="etiqueta">Productos vendidos · hoy</div>
+        <div class="valor">${artVendidos}</div>
+        <div class="subtexto">${nVentas} venta${nVentas === 1 ? '' : 's'} · ${util.bs(bsVentas)}</div>
       </div>
       <div class="tarjeta acento">
         <div class="etiqueta">Pagos pendientes</div>

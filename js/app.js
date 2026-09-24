@@ -21,6 +21,8 @@ const modulos = {
   inscripciones: { titulo: 'Inscripciones', cargar: cargarInscripciones },
   pagos:         { titulo: 'Pagos',         cargar: cargarPagos },
   pases:         { titulo: 'Pases del día', cargar: cargarPases },
+  ventas:        { titulo: 'Ventas',        cargar: cargarVentas },
+  productos:     { titulo: 'Productos',     cargar: cargarProductos },
   reportes:      { titulo: 'Reportes',      cargar: cargarReportes },
   usuarios:      { titulo: 'Usuarios',      cargar: cargarUsuarios },
   configuracion: { titulo: 'Configuración', cargar: cargarConfiguracion },
@@ -36,7 +38,7 @@ const PERMISOS = {
   Administrador: Object.keys(modulos),
 
   // Caja: solo lo que necesita para cobrar e inscribir
-  Cajero: ['dashboard', 'alumnos', 'inscripciones', 'pagos', 'pases'],
+  Cajero: ['dashboard', 'alumnos', 'inscripciones', 'pagos', 'pases', 'ventas'],
 };
 
 // ============================================================
@@ -55,6 +57,10 @@ const PERMISOS_ACCION = {
 
   // 🗑️ Eliminar un pago suelto desde el módulo Pagos
   eliminarPago: ['Administrador'],
+
+  // Ver cuánto se gana (precio de compra y ganancia de las ventas).
+  // Caja no lo ve: es información del negocio, no hace falta para cobrar.
+  verGanancias: ['Administrador'],
 };
 
 /** Compara roles sin que importen mayúsculas ni espacios de más. */
@@ -74,7 +80,7 @@ function modulosPermitidos(rol) {
   const clave = Object.keys(PERMISOS).find(k => k.toLowerCase() === buscado);
   if (clave) return PERMISOS[clave];
   // Recepción, instructores y cualquier otro rol: todo menos lo del administrador
-  return Object.keys(modulos).filter(m => m !== 'usuarios' && m !== 'configuracion');
+  return Object.keys(modulos).filter(m => !['usuarios', 'configuracion'].includes(m));
 }
 
 /** ¿Este rol puede entrar a este módulo? */

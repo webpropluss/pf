@@ -225,7 +225,13 @@ tr:hover td { background: var(--negro-suave); }
 }
 .modal h3 { font-size: 24px; margin-bottom: 18px; }
 .modal .fila { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; }
-.modal .pie { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+.modal .pie {
+  display: flex; justify-content: flex-end; gap: 10px;
+  position: sticky; bottom: 0; z-index: 2;
+  background: var(--negro-panel);
+  border-top: 1px solid var(--borde);
+  padding: 14px 0 0; margin: 10px 0 0;
+}
 .modal .mensaje-error { margin-top: 4px; }
 
 /* ---------- Detalle de inscripción ---------- */
@@ -503,3 +509,41 @@ tr:hover td { background: var(--negro-suave); }
 }
 /* El borde del prefijo también se marca al escribir */
 .tel-campo:focus-within .tel-pais { border-color: var(--rojo); }
+
+/* ============================================================
+   VENTAS · buscador de productos y contador de cantidad
+   ============================================================ */
+
+/* Lista de productos que aparece al escribir en el buscador */
+.resultados-venta { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+
+.resultado-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  width: 100%; text-align: left; cursor: pointer;
+  font-family: var(--fuente-texto); font-size: 15px; color: var(--texto);
+  background: var(--negro-suave);
+  border: 1px solid var(--borde); border-left: 3px solid var(--rojo);
+  border-radius: 8px; padding: 12px 14px;
+  transition: border-color .12s, background .12s;
+}
+.resultado-item:hover:not([disabled]) { background: var(--negro-panel); border-color: var(--rojo); }
+.resultado-item:active:not([disabled]) { transform: translateY(1px); }
+.resultado-item[disabled] { opacity: .5; cursor: not-allowed; border-left-color: var(--borde); }
+.resultado-item .nombre { font-weight: 600; }
+.resultado-item .datos  { font-size: 13px; color: var(--texto-suave); white-space: nowrap; }
+
+/* Contador − 2 + para la cantidad de cada línea */
+.contador { display: inline-flex; align-items: center; gap: 4px; }
+.contador button {
+  width: 34px; height: 34px; border-radius: 8px; cursor: pointer;
+  background: var(--negro-panel); color: var(--texto);
+  border: 1px solid var(--borde); font-size: 18px; line-height: 1;
+}
+.contador button:hover { border-color: var(--rojo); }
+.contador strong { min-width: 28px; text-align: center; font-size: 16px; }
+
+@media (max-width: 760px) {
+  .resultado-item { flex-direction: column; align-items: flex-start; gap: 4px; padding: 14px; }
+  .resultado-item .datos { white-space: normal; }
+  .contador button { width: 40px; height: 40px; font-size: 20px; }
+}
