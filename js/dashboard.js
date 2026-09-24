@@ -6,9 +6,15 @@ async function cargarDashboard(contenido) {
   const hoy = new Date();
   const inicioMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString();
 
-  // Días de anticipación configurables (Configuración → Aviso de WhatsApp)
-  const confDias = await db.from('config').select('valor').eq('clave', 'dias_aviso_whatsapp').single();
-  const diasAviso = Math.max(1, parseInt(confDias.data?.valor || '3', 10));
+  // Configuración del aviso (días de anticipación y texto del mensaje).
+  // Se trae AQUÍ para que al tocar el botón no haya ninguna espera:
+  // si se espera algo, el teléfono bloquea la apertura de WhatsApp.
+  const confs = await db.from('config').select('clave, valor');
+  const C = {};
+  (confs.data || []).forEach(c => C[c.clave] = c.valor);
+  const diasAviso = Math.max(1, parseInt(C.dias_aviso_whatsapp || '3', 10));
+  const plantilla = C.mensaje_whatsapp ||
+    'Hola {nombre} 👋 Te saludamos de Prime Fit 🥊. Tu mensualidad vence el {fecha}. ¡Renueva a tiempo! 💪';
 
   // Consultas en paralelo
   const [alumnos, horarios, pagosMes, inscripciones, porVencer] = await Promise.all([
@@ -88,49 +94,74 @@ async function cargarDashboard(contenido) {
         ? `<table>
              <thead><tr><th>Alumno</th><th>Teléfono</th><th>Vence</th><th>Aviso</th><th></th></tr></thead>
              <tbody>
-               ${porVencer.data.map(v => `
+               ${porVencer.data.map(v => {
+                 const fechaBonita = new Date(v.fecha_fin + 'T00:00:00')
+                   .toLocaleDateString('es-BO', { day: 'numeric', month: 'long' });
+                 const mensaje = plantilla
+                   .replaceAll('{nombre}', v.alumno_nombre)
+                   .replaceAll('{fecha}', fechaBonita);
+                 // Los datos quedan guardados para registrarlos al confirmar
+                 avisosPendientes[v.inscripcion_id] = {
+                   alumno_id: v.alumno_id, inscripcion_id: v.inscripcion_id,
+                   telefono: v.telefono, mensaje,
+                 };
+                 const enlace = `https://wa.me/${v.telefono}?text=${encodeURIComponent(mensaje)}`;
+                 return `
                  <tr id="filaAviso-${v.inscripcion_id}">
                    <td>${v.alumno_nombre}</td>
                    <td>${v.telefono ? telefonoMostrar(v.telefono) : '<span class="pill pill-rojo">Sin teléfono</span>'}</td>
                    <td>${util.fecha(v.fecha_fin)}</td>
-                   <td><span class="pill pill-amarillo">Pendiente</span></td>
-                   <td>${v.telefono ? `<button class="btn btn-rojo" style="padding:7px 14px"
-                        onclick='enviarWhatsAppGratis(${JSON.stringify(v)})'>📲 Enviar WhatsApp</button>` : ''}</td>
-                 </tr>`).join('')}
+                   <td><span class="pill pill-amarillo">Sin enviar</span></td>
+                   <td class="acciones">${v.telefono ? `
+                     <a class="btn btn-rojo" href="${enlace}" target="_blank" rel="noopener"
+                        onclick="mostrarConfirmacionAviso(${v.inscripcion_id})">📲 Abrir WhatsApp</a>
+                     <button class="btn btn-oscuro" id="confirmar-${v.inscripcion_id}"
+                             style="display:none" onclick="marcarAvisoEnviado(${v.inscripcion_id})">
+                       ✓ Ya lo envié</button>` : ''}</td>
+                 </tr>`; }).join('')}
              </tbody>
            </table>
            <p class="subtexto" style="margin-top:10px">
-             El botón abre WhatsApp con el mensaje ya escrito y personalizado — solo presiona enviar.
+             <strong>Abrir WhatsApp</strong> abre el chat con el mensaje ya escrito — ahí presionas enviar.
+             Al volver, toca <strong>✓ Ya lo envié</strong> para que salga de esta lista.
              100% gratis: sale desde el WhatsApp normal del gimnasio.</p>`
         : `<p class="cargando">No hay mensualidades por vencer en los próximos ${diasAviso} días. ✅</p>`}
     </div>`;
 }
 
 // ============================================================
-// Envío GRATUITO por WhatsApp: abre wa.me con el mensaje listo
-// y registra el aviso para no repetirlo.
+// Aviso por WhatsApp (gratis, desde el WhatsApp del gimnasio)
+//
+// El botón es un ENLACE de verdad, no JavaScript: así el teléfono
+// nunca bloquea la apertura de WhatsApp. Y el aviso se marca como
+// enviado solo cuando la persona lo confirma, no antes.
 // ============================================================
-async function enviarWhatsAppGratis(v) {
-  // Plantilla configurable en Configuración ({nombre} y {fecha})
-  const { data: conf } = await db.from('config').select('valor').eq('clave', 'mensaje_whatsapp').single();
-  const plantilla = conf?.valor ||
-    'Hola {nombre} 👋 Te saludamos de Prime Fit 🥊. Tu mensualidad vence el {fecha}. ¡Renueva a tiempo! 💪';
 
-  const fechaBonita = new Date(v.fecha_fin + 'T00:00:00')
-    .toLocaleDateString('es-BO', { day: 'numeric', month: 'long' });
-  const mensaje = plantilla.replaceAll('{nombre}', v.alumno_nombre).replaceAll('{fecha}', fechaBonita);
+let avisosPendientes = {};   // datos de cada aviso, listos para registrar
 
-  // Abrir WhatsApp (Web o app) con el chat y el texto ya preparados
-  window.open(`https://wa.me/${v.telefono}?text=${encodeURIComponent(mensaje)}`, '_blank');
+/** Al abrir WhatsApp, aparece el botón para confirmar el envío. */
+function mostrarConfirmacionAviso(inscripcionId) {
+  const btn = document.getElementById('confirmar-' + inscripcionId);
+  if (btn) btn.style.display = '';
+}
 
-  // Registrar el aviso para que salga de la lista de pendientes
-  await db.from('avisos_whatsapp').upsert({
+/** Registra el aviso, ya confirmado por la persona. */
+async function marcarAvisoEnviado(inscripcionId) {
+  const v = avisosPendientes[inscripcionId];
+  if (!v) return;
+
+  const r = await db.from('avisos_whatsapp').upsert({
     alumno_id: v.alumno_id, inscripcion_id: v.inscripcion_id,
-    telefono: v.telefono, mensaje, estado: 'enviado',
-    detalle_error: 'Enviado manualmente con wa.me (opción gratuita)',
+    telefono: v.telefono, mensaje: v.mensaje, estado: 'enviado',
+    detalle_error: 'Enviado a mano por WhatsApp',
   }, { onConflict: 'inscripcion_id' });
 
-  const fila = document.getElementById('filaAviso-' + v.inscripcion_id);
-  if (fila) fila.querySelector('.pill').outerHTML = '<span class="pill pill-verde">Enviado</span>';
-  notificar('WhatsApp abierto con el mensaje listo. El aviso quedó registrado.');
+  if (r.error) { notificar(r.error.message, true); return; }
+
+  const fila = document.getElementById('filaAviso-' + inscripcionId);
+  if (fila) {
+    fila.querySelector('.pill').outerHTML = '<span class="pill pill-verde">Enviado</span>';
+    fila.querySelector('.acciones').innerHTML = '<span class="subtexto">Listo ✅</span>';
+  }
+  notificar('Aviso registrado como enviado.');
 }

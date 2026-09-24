@@ -133,19 +133,34 @@ async function cargarConfiguracion(contenido) {
     .select('*, alumnos(nombre)').order('id', { ascending: false }).limit(50);
   document.getElementById('tablaAvisos').innerHTML = (avisos.data?.length) ? `
     <table>
-      <thead><tr><th>Fecha</th><th>Alumno</th><th>Teléfono</th><th>Estado</th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Alumno</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead>
       <tbody>${avisos.data.map(a => `
         <tr>
           <td>${new Date(a.fecha_envio).toLocaleString('es-BO')}</td>
           <td>${a.alumnos?.nombre || '—'}</td>
-          <td>${a.telefono}</td>
+          <td>${telefonoMostrar(a.telefono)}</td>
           <td>${a.estado === 'enviado'
                 ? '<span class="pill pill-verde">Enviado</span>'
                 : a.estado === 'error'
                 ? `<span class="pill pill-rojo" title="${a.detalle_error || ''}">Error</span>`
                 : '<span class="pill pill-amarillo">Pendiente</span>'}</td>
+          <td class="acciones">
+            <button title="Borrar el aviso para poder volver a enviarlo"
+                    onclick="borrarAviso(${a.id})">🗑️</button></td>
         </tr>`).join('')}
       </tbody>
-    </table>`
+    </table>
+    <p class="subtexto" style="margin-top:10px">
+      Al borrar un aviso, ese alumno vuelve a aparecer en el Dashboard para
+      avisarle de nuevo. Útil si marcaste uno por error o fue una prueba.</p>`
     : '<p class="cargando">Todavía no se envió ningún aviso. Se activan en la Etapa 5.</p>';
+}
+
+/** Borra un aviso para que ese alumno vuelva a la lista de pendientes. */
+async function borrarAviso(id) {
+  if (!confirmar('¿Borrar este aviso?\n\nEl alumno volverá a aparecer en el Dashboard para avisarle de nuevo.')) return;
+  const r = await db.from('avisos_whatsapp').delete().eq('id', id);
+  if (r.error) { notificar(r.error.message, true); return; }
+  notificar('Aviso borrado. El alumno vuelve a la lista de pendientes.');
+  abrirModulo('configuracion');
 }
