@@ -27,6 +27,31 @@ const modulos = {
   configuracion: { titulo: 'Configuración', cargar: cargarConfiguracion },
 };
 
+// ============================================================
+// QUÉ VE CADA ROL
+// Para cambiar los permisos de un rol, se edita solo esta lista.
+// Un rol que no esté aquí ve todo, menos Usuarios y Configuración.
+// ============================================================
+const PERMISOS = {
+  // El administrador ve absolutamente todo
+  Administrador: Object.keys(modulos),
+
+  // Caja: solo lo que necesita para cobrar e inscribir
+  Cajero: ['dashboard', 'alumnos', 'inscripciones', 'pagos', 'pases'],
+};
+
+/** Módulos permitidos para el rol indicado. */
+function modulosPermitidos(rol) {
+  if (PERMISOS[rol]) return PERMISOS[rol];
+  // Recepción, instructores y cualquier otro rol: todo menos lo del administrador
+  return Object.keys(modulos).filter(m => m !== 'usuarios' && m !== 'configuracion');
+}
+
+/** ¿Este rol puede entrar a este módulo? */
+function puedeVer(nombre) {
+  return modulosPermitidos(perfilActual?.rol).includes(nombre);
+}
+
 let moduloActual = null;
 let pilaModulos = [];   // por dónde pasó el usuario, para el gesto "atrás"
 
@@ -43,6 +68,16 @@ function abrirModulo(nombre, esRetroceso = false) {
 
   const contenido = document.getElementById('contenido');
   const mod = modulos[nombre];
+
+  // Aunque no aparezca en el menú, tampoco se puede entrar por otro camino
+  if (mod && !puedeVer(nombre)) {
+    contenido.innerHTML = `
+      <header class="cabecera"><h2>Sin acceso</h2></header>
+      <div class="panel"><p class="cargando">
+        Tu rol (${perfilActual?.rol || '—'}) no tiene acceso a ${mod.titulo}.
+      </p></div>`;
+    return;
+  }
 
   if (!mod) {
     contenido.innerHTML = `
@@ -62,10 +97,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('usuarioNombre').textContent = perfilActual.nombre;
   document.getElementById('usuarioRol').textContent = perfilActual.rol;
 
-  // Ocultar módulos exclusivos del administrador
-  if (perfilActual.rol !== 'Administrador') {
-    document.querySelectorAll('[data-solo-admin]').forEach(i => i.remove());
-  }
+  // Dejar en el menú solo los módulos que su rol puede ver
+  const permitidos = modulosPermitidos(perfilActual.rol);
+  document.querySelectorAll('.nav-item').forEach(i => {
+    if (!permitidos.includes(i.dataset.modulo)) i.remove();
+  });
 
   document.querySelectorAll('.nav-item').forEach(item =>
     item.addEventListener('click', () => {
@@ -73,7 +109,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       cerrarMenuMovil();   // en el teléfono, cerrar el menú al elegir
     }));
 
-  abrirModulo('dashboard');
+  abrirModulo(permitidos.includes('dashboard') ? 'dashboard' : permitidos[0]);
   configurarGestoAtras();
 
   // "Latido" para mantener la base despierta (no se suspende por inactividad).
