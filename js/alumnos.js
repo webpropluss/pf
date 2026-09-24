@@ -84,7 +84,16 @@ async function dialogoAlumno(id) {
     <div class="campo"><label>Fecha de nacimiento <span class="subtexto">(opcional)</span></label>
       <input type="date" name="fecha_nacimiento" value="${a.fecha_nacimiento || ''}"></div>
     <div class="campo"><label>Foto <span class="subtexto">(opcional)</span></label>
-      <input type="file" name="foto" accept="image/*"></div>
+      <div class="foto-campo">
+        <div class="foto-vista" id="vistaFoto">
+          ${a.foto_url ? `<img src="${a.foto_url}" alt="">` : '<span>👤</span>'}
+        </div>
+        <div style="flex:1;min-width:0">
+          <input type="file" name="foto" accept="image/*"
+                 onchange="previsualizarFoto(this, 'avisoFoto', 'vistaFoto', 400)">
+          <span class="subtexto" id="avisoFoto">Se comprime sola antes de subirla.</span>
+        </div>
+      </div></div>
   `, async (form) => {
     const telefono = validarTelefono(form.telefono.value);   // agrega el 591 solo
 
@@ -94,13 +103,13 @@ async function dialogoAlumno(id) {
       fecha_nacimiento: form.fecha_nacimiento.value || null,
     };
 
-    // Subir la foto a Supabase Storage si se eligió una
+    // Subir la foto comprimida (antes se subía tal cual y pesaba de más)
     const archivo = form.foto.files[0];
     if (archivo) {
-      const ruta = `alumno_${Date.now()}.${archivo.name.split('.').pop()}`;
-      const sub = await db.storage.from('fotos-alumnos').upload(ruta, archivo, { upsert: true });
-      if (sub.error) throw new Error('No se pudo subir la foto: ' + sub.error.message);
-      datos.foto_url = db.storage.from('fotos-alumnos').getPublicUrl(ruta).data.publicUrl;
+      const { url, kb } = await subirFoto(archivo, 'fotos-alumnos', 'alumno', 400);
+      datos.foto_url = url;
+      if (a.foto_url) await borrarFoto(a.foto_url, 'fotos-alumnos');
+      notificar(`Foto subida (${kb} KB).`);
     }
 
     if (id) {

@@ -6,6 +6,13 @@
 
 const CATEGORIAS = ['Suplementos', 'Bebidas', 'Accesorios', 'Ropa', 'Otros'];
 
+/** Miniatura del producto (o un ícono si no tiene foto). */
+function fotoProductoHtml(p, clase = 'foto-mini') {
+  return p.foto_url
+    ? `<span class="${clase}"><img src="${p.foto_url}" alt="" loading="lazy"></span>`
+    : `<span class="${clase}"><span class="sin-foto">📦</span></span>`;
+}
+
 async function cargarProductos(contenido) {
   const productos = verificar(await db.from('productos').select('*').order('categoria').order('nombre'));
 
@@ -20,6 +27,7 @@ async function cargarProductos(contenido) {
     const bajo = p.stock <= p.stock_minimo;
     return `
     <tr>
+      <td>${fotoProductoHtml(p)}</td>
       <td><strong>${p.nombre}</strong><div class="subtexto">${p.codigo} · ${p.categoria}</div></td>
       <td>${util.bs(p.precio_compra)}</td>
       <td><strong>${util.bs(p.precio_venta)}</strong></td>
@@ -68,7 +76,7 @@ async function cargarProductos(contenido) {
 
     <div class="panel">
       <table>
-        <thead><tr><th>Producto</th><th>Compra</th><th>Venta</th><th>Ganancia</th>
+        <thead><tr><th></th><th>Producto</th><th>Compra</th><th>Venta</th><th>Ganancia</th>
                    <th>Stock</th><th>Estado</th><th></th></tr></thead>
         <tbody id="tbodyProductos">${filas(productos)}</tbody>
       </table>
@@ -121,6 +129,22 @@ async function dialogoProducto(id) {
       <div class="campo"><label>Avisar cuando queden</label>
         <input type="number" name="stock_minimo" min="0" value="${p.stock_minimo}"></div>
     </div>
+
+    <div class="campo"><label>Foto <span class="subtexto">(opcional)</span></label>
+      <div class="foto-campo">
+        <div class="foto-vista" id="vistaFoto">
+          ${p.foto_url ? `<img src="${p.foto_url}" alt="">` : '<span>📦</span>'}
+        </div>
+        <div style="flex:1;min-width:0">
+          <input type="file" name="foto" accept="image/*"
+                 onchange="previsualizarFoto(this, 'avisoFoto', 'vistaFoto')">
+          <span class="subtexto" id="avisoFoto">Se comprime sola antes de subirla.
+            Sirve para distinguir productos parecidos.</span>
+        </div>
+      </div>
+      ${p.foto_url ? `<label class="quitar-foto">
+          <input type="checkbox" name="quitar_foto"> Quitar la foto actual</label>` : ''}
+    </div>
   `, async (form) => {
     const compra = Number(form.precio_compra.value);
     const venta  = Number(form.precio_venta.value);
@@ -135,6 +159,18 @@ async function dialogoProducto(id) {
       precio_venta: venta,
       stock_minimo: Number(form.stock_minimo.value || 0),
     };
+
+    // Foto: se comprime en el teléfono y se sube ya liviana
+    const archivo = form.foto.files[0];
+    if (archivo) {
+      const { url, kb } = await subirFoto(archivo, 'fotos-productos', 'prod', 500);
+      datos.foto_url = url;
+      if (p.foto_url) await borrarFoto(p.foto_url, 'fotos-productos');  // la vieja ya no sirve
+      notificar(`Foto subida (${kb} KB).`);
+    } else if (form.quitar_foto?.checked) {
+      datos.foto_url = null;
+      await borrarFoto(p.foto_url, 'fotos-productos');
+    }
 
     if (id) {
       verificar(await db.from('productos').update(datos).eq('id', id));
@@ -207,8 +243,10 @@ async function alternarProducto(id, activo) {
 
 async function eliminarProducto(id, nombre) {
   if (!confirmar(`¿Eliminar "${nombre}" para siempre?\n\nSi ya se vendió alguna vez, el sistema no lo dejará (usa 🚫 Retirar).`)) return;
+  const prod = verificar(await db.from('productos').select('foto_url').eq('id', id).single());
   const r = await db.rpc('eliminar_producto', { p_id: id });
   if (r.error) { notificar(r.error.message, true); return; }
+  await borrarFoto(prod?.foto_url, 'fotos-productos');
   notificar('Producto eliminado.');
   abrirModulo('productos');
 }

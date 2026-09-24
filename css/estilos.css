@@ -547,3 +547,46 @@ tr:hover td { background: var(--negro-suave); }
   .resultado-item .datos { white-space: normal; }
   .contador button { width: 40px; height: 40px; font-size: 20px; }
 }
+
+/* ============================================================
+   FOTOS DE PRODUCTOS
+   ============================================================ */
+
+/* Miniatura en las listas y en el buscador de ventas */
+.foto-mini {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 46px; height: 46px; flex: 0 0 46px;
+  border-radius: 8px; overflow: hidden;
+  background: var(--negro-suave); border: 1px solid var(--borde);
+}
+.foto-mini img { width: 100%; height: 100%; object-fit: cover; }
+.foto-mini .sin-foto { font-size: 20px; opacity: .45; }
+
+/* El resultado del buscador ahora lleva foto + texto */
+.resultado-item .texto { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.resultado-item .nombre { overflow: hidden; text-overflow: ellipsis; }
+
+/* Campo de foto con vista previa en los formularios */
+.foto-campo { display: flex; align-items: center; gap: 14px; }
+.foto-vista {
+  display: flex; align-items: center; justify-content: center;
+  width: 76px; height: 76px; flex: 0 0 76px;
+  border-radius: 10px; overflow: hidden;
+  background: var(--negro-suave); border: 1px solid var(--borde);
+  font-size: 28px; opacity: .9;
+}
+.foto-vista img { width: 100%; height: 100%; object-fit: cover; }
+.foto-campo input[type="file"] { width: 100%; margin-bottom: 6px; }
+
+.quitar-foto {
+  display: flex; align-items: center; gap: 8px; margin-top: 10px;
+  font-size: 14px; color: var(--texto-suave); text-transform: none; letter-spacing: 0;
+}
+.quitar-foto input { width: 18px; height: 18px; accent-color: var(--rojo); }
+
+@media (max-width: 760px) {
+  /* En las tarjetas, la foto se ve más grande y va arriba */
+  table .foto-mini { width: 64px; height: 64px; flex-basis: 64px; }
+  .resultado-item { flex-direction: row; align-items: center; }
+  .resultado-item .foto-mini { width: 52px; height: 52px; flex-basis: 52px; }
+}

@@ -74,7 +74,7 @@ async function cargarVentas(contenido) {
 
 async function nuevaVenta() {
   ventaCatalogo = verificar(await db.from('productos')
-    .select('id, nombre, categoria, precio_venta, stock')
+    .select('id, nombre, categoria, precio_venta, stock, foto_url')
     .eq('activo', true).order('nombre'));
   ventaLineas = [];
 
@@ -141,9 +141,12 @@ function buscarProductoVenta() {
     return `
       <button type="button" class="resultado-item" ${libre <= 0 ? 'disabled' : ''}
               onclick="agregarLineaVenta(${p.id})">
-        <span class="nombre">${p.nombre}</span>
-        <span class="datos">${util.bs(p.precio_venta)} ·
-          ${libre > 0 ? `quedan ${libre}` : '<span style="color:#ff8a8f">sin stock</span>'}</span>
+        ${fotoProductoHtml(p)}
+        <span class="texto">
+          <span class="nombre">${p.nombre}</span>
+          <span class="datos">${util.bs(p.precio_venta)} ·
+            ${libre > 0 ? `quedan ${libre}` : '<span style="color:#ff8a8f">sin stock</span>'}</span>
+        </span>
       </button>`;
   }).join('')
     : `<p class="subtexto" style="padding:4px 0 12px">No hay productos que digan “${q}”.</p>`;
@@ -160,7 +163,8 @@ function agregarLineaVenta(id) {
     linea.cantidad++;
   } else {
     if (p.stock <= 0) { notificar(`${p.nombre} está agotado.`, true); return; }
-    ventaLineas.push({ id: p.id, nombre: p.nombre, precio: Number(p.precio_venta), stock: p.stock, cantidad: 1 });
+    ventaLineas.push({ id: p.id, nombre: p.nombre, precio: Number(p.precio_venta),
+                       stock: p.stock, foto_url: p.foto_url, cantidad: 1 });
   }
 
   // Limpiar el buscador para encadenar varios productos rápido
@@ -189,9 +193,10 @@ function pintarLineasVenta() {
 
   cont.innerHTML = ventaLineas.length ? `
     <table style="margin-bottom:14px">
-      <thead><tr><th>Producto</th><th>Precio</th><th>Cantidad</th><th>Subtotal</th><th></th></tr></thead>
+      <thead><tr><th></th><th>Producto</th><th>Precio</th><th>Cantidad</th><th>Subtotal</th><th></th></tr></thead>
       <tbody>${ventaLineas.map((l, i) => `
         <tr>
+          <td>${fotoProductoHtml(l)}</td>
           <td>${l.nombre}</td>
           <td>${util.bs(l.precio)}</td>
           <td><span class="contador">

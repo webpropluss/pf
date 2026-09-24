@@ -187,3 +187,110 @@ function validarTelefono(valorDelCampo, obligatorio = true) {
   }
   return telefonoCompleto(n);
 }
+
+// ============================================================
+// FOTOS
+// Las fotos se achican y comprimen EN EL TELÉFONO antes de subirlas.
+// Una foto de celular de 3 MB queda en unos 40 KB, así el espacio
+// del servidor rinde y las listas cargan rápido.
+// ============================================================
+
+/** Carga el archivo como imagen para poder redibujarla. */
+function _cargarImagen(archivo) {
+  return new Promise((ok, mal) => {
+    const url = URL.createObjectURL(archivo);
+    const img = new Image();
+    img.onload  = () => { URL.revokeObjectURL(url); ok(img); };
+    img.onerror = () => { URL.revokeObjectURL(url); mal(new Error('No se pudo leer la imagen.')); };
+    img.src = url;
+  });
+}
+
+function _aBlob(lienzo, tipo, calidad) {
+  return new Promise((ok) => lienzo.toBlob(ok, tipo, calidad));
+}
+
+/**
+ * Achica la foto a un cuadrado y la comprime.
+ * @param {File} archivo    la foto elegida
+ * @param {number} maxLado  lado máximo en píxeles
+ * @param {number} calidad  0 a 1
+ * @returns {Promise<{blob: Blob, extension: string, kb: number}>}
+ */
+async function comprimirImagen(archivo, maxLado = 500, calidad = 0.75) {
+  if (!archivo.type.startsWith('image/')) throw new Error('Ese archivo no es una imagen.');
+
+  const img = await _cargarImagen(archivo);
+  const escala = Math.min(1, maxLado / Math.max(img.width, img.height));
+  const ancho = Math.max(1, Math.round(img.width * escala));
+  const alto  = Math.max(1, Math.round(img.height * escala));
+
+  const lienzo = document.createElement('canvas');
+  lienzo.width = ancho; lienzo.height = alto;
+  const ctx = lienzo.getContext('2d');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, ancho, alto);
+
+  // WebP pesa bastante menos; si el navegador no lo soporta, se usa JPEG
+  let blob = await _aBlob(lienzo, 'image/webp', calidad);
+  let extension = 'webp';
+  if (!blob || blob.type !== 'image/webp') {
+    blob = await _aBlob(lienzo, 'image/jpeg', calidad);
+    extension = 'jpg';
+  }
+  if (!blob) throw new Error('No se pudo procesar la imagen.');
+
+  return { blob, extension, kb: Math.round(blob.size / 1024) };
+}
+
+/**
+ * Comprime y sube una foto, y devuelve su dirección pública.
+ * @param {File} archivo
+ * @param {string} deposito  bucket de Supabase Storage
+ * @param {string} prefijo   para armar el nombre del archivo
+ */
+async function subirFoto(archivo, deposito, prefijo = 'foto', maxLado = 500) {
+  const { blob, extension, kb } = await comprimirImagen(archivo, maxLado);
+
+  const ruta = `${prefijo}_${Date.now()}.${extension}`;
+  const sub = await db.storage.from(deposito).upload(ruta, blob, {
+    contentType: blob.type, upsert: true,
+  });
+  if (sub.error) throw new Error('No se pudo subir la foto: ' + sub.error.message);
+
+  return {
+    url: db.storage.from(deposito).getPublicUrl(ruta).data.publicUrl,
+    kb,
+  };
+}
+
+/** Borra una foto del depósito a partir de su dirección. */
+async function borrarFoto(url, deposito) {
+  if (!url) return;
+  const archivo = String(url).split('/').pop().split('?')[0];
+  if (archivo) await db.storage.from(deposito).remove([archivo]);
+}
+
+/**
+ * Muestra el peso de la foto elegida antes de guardar, para que se vea
+ * cuánto se comprimió.
+ */
+async function previsualizarFoto(input, idAviso, idVista, maxLado = 500) {
+  const aviso = document.getElementById(idAviso);
+  const vista = document.getElementById(idVista);
+  const archivo = input.files?.[0];
+  if (!archivo) { if (aviso) aviso.textContent = ''; if (vista) vista.innerHTML = ''; return; }
+
+  const kbOriginal = Math.round(archivo.size / 1024);
+  if (aviso) aviso.textContent = 'Procesando la foto…';
+  try {
+    const { blob, kb } = await comprimirImagen(archivo, maxLado);
+    if (aviso) {
+      aviso.innerHTML = `Se subirá comprimida: <strong>${kb} KB</strong> ` +
+        `<span class="subtexto">(la original pesa ${kbOriginal} KB)</span>`;
+    }
+    if (vista) vista.innerHTML = `<img src="${URL.createObjectURL(blob)}" alt="Vista previa">`;
+  } catch (e) {
+    if (aviso) aviso.textContent = e.message;
+  }
+}
