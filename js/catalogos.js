@@ -109,7 +109,7 @@ async function cargarInstructores(contenido) {
             <tr>
               <td>${i.codigo}</td>
               <td><strong>${i.nombre}</strong></td>
-              <td>${i.telefono || '—'}</td>
+              <td>${telefonoMostrar(i.telefono)}</td>
               <td>${i.especialidad || '—'}</td>
               <td>${clasesPor[i.id] || 0}</td>
               <td>${i.activo ? '<span class="pill pill-verde">Activo</span>' : '<span class="pill pill-rojo">Inactivo</span>'}</td>
@@ -132,13 +132,13 @@ async function dialogoInstructor(id) {
   abrirModal(id ? 'Editar instructor' : 'Nuevo instructor', `
     <div class="campo"><label>Nombre</label><input name="nombre" required value="${i.nombre}"></div>
     <div class="fila">
-      <div class="campo"><label>Teléfono</label><input name="telefono" value="${i.telefono || ''}"></div>
+      <div class="campo"><label>Celular</label>${campoTelefono('telefono', i.telefono, false)}</div>
       <div class="campo"><label>Especialidad</label><input name="especialidad" value="${i.especialidad || ''}"></div>
     </div>
   `, async (form) => {
     const datos = {
       nombre: form.nombre.value.trim(),
-      telefono: form.telefono.value.trim(),
+      telefono: validarTelefono(form.telefono.value, false),
       especialidad: form.especialidad.value.trim(),
     };
     if (id) verificar(await db.from('instructores').update(datos).eq('id', id));

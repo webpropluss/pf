@@ -11,7 +11,7 @@ async function cargarAlumnos(contenido) {
     <tr>
       <td>${avatarHtml(a.nombre, a.foto_url)}</td>
       <td><strong>${a.nombre}</strong><div class="subtexto">${a.codigo}</div></td>
-      <td>${a.telefono || '—'}</td>
+      <td>${telefonoMostrar(a.telefono)}</td>
       <td>${a.fecha_nacimiento ? edadDe(a.fecha_nacimiento) + ' años' : '—'}</td>
       <td>${a.activo ? '<span class="pill pill-verde">Activo</span>' : '<span class="pill pill-rojo">Inactivo</span>'}</td>
       <td class="acciones">
@@ -62,16 +62,15 @@ async function dialogoAlumno(id) {
   abrirModal(id ? 'Editar alumno' : 'Nuevo alumno', `
     <div class="campo"><label>Nombre completo</label>
       <input name="nombre" required value="${a.nombre}"></div>
-    <div class="campo"><label>Teléfono (WhatsApp, con código de país)</label>
-      <input name="telefono" required placeholder="59171234567" value="${a.telefono || ''}">
-      <span class="subtexto">Se usa para avisarle cuando su mensualidad esté por vencer.</span></div>
+    <div class="campo"><label>Celular (WhatsApp)</label>
+      ${campoTelefono('telefono', a.telefono, true)}
+      <span class="subtexto">Solo los 8 dígitos. Se usa para avisarle cuando su mensualidad esté por vencer.</span></div>
     <div class="campo"><label>Fecha de nacimiento <span class="subtexto">(opcional)</span></label>
       <input type="date" name="fecha_nacimiento" value="${a.fecha_nacimiento || ''}"></div>
     <div class="campo"><label>Foto <span class="subtexto">(opcional)</span></label>
       <input type="file" name="foto" accept="image/*"></div>
   `, async (form) => {
-    const telefono = form.telefono.value.replace(/[^\d]/g, '');
-    if (!telefono) throw new Error('El teléfono es necesario para enviarle el aviso de WhatsApp.');
+    const telefono = validarTelefono(form.telefono.value);   // agrega el 591 solo
 
     const datos = {
       nombre: form.nombre.value.trim(),

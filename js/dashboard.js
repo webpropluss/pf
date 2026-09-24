@@ -91,7 +91,7 @@ async function cargarDashboard(contenido) {
                ${porVencer.data.map(v => `
                  <tr id="filaAviso-${v.inscripcion_id}">
                    <td>${v.alumno_nombre}</td>
-                   <td>${v.telefono || '<span class="pill pill-rojo">Sin teléfono</span>'}</td>
+                   <td>${v.telefono ? telefonoMostrar(v.telefono) : '<span class="pill pill-rojo">Sin teléfono</span>'}</td>
                    <td>${util.fecha(v.fecha_fin)}</td>
                    <td><span class="pill pill-amarillo">Pendiente</span></td>
                    <td>${v.telefono ? `<button class="btn btn-rojo" style="padding:7px 14px"

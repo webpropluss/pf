@@ -479,3 +479,27 @@ tr:hover td { background: var(--negro-suave); }
   table td::before { font-size: 10px; }
   .contenido header.cabecera h2 { font-size: 23px; }
 }
+
+/* ============================================================
+   CAMPO DE TELÉFONO con el código de país fijo
+   Se escriben solo los 8 dígitos; el +591 va al lado, sin tocarse.
+   ============================================================ */
+.tel-campo { display: flex; align-items: stretch; width: 100%; }
+
+.tel-pais {
+  display: flex; align-items: center; flex: 0 0 auto;
+  padding: 0 13px;
+  background: var(--negro-panel);
+  border: 1px solid var(--borde); border-right: none;
+  border-radius: 8px 0 0 8px;
+  color: var(--texto-suave); font-weight: 700; font-size: 15px;
+  letter-spacing: .02em; user-select: none;
+}
+
+.tel-campo input {
+  flex: 1 1 auto; min-width: 0;
+  border-radius: 0 8px 8px 0;
+  letter-spacing: .06em;
+}
+/* El borde del prefijo también se marca al escribir */
+.tel-campo:focus-within .tel-pais { border-color: var(--rojo); }

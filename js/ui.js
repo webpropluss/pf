@@ -126,3 +126,64 @@ function adaptarTablasMovil(raiz = document) {
     aplicar();
   }
 })();
+
+
+// ============================================================
+// TELÉFONOS
+// En los formularios se escriben solo los 8 dígitos del celular.
+// El código de país (591) se agrega y se quita automáticamente.
+// ============================================================
+
+/** Del número guardado (59171234567) saca los 8 dígitos para el formulario. */
+function telefonoLocal(guardado) {
+  const n = String(guardado || '').replace(/\D/g, '');
+  return n.startsWith(CODIGO_PAIS) ? n.slice(CODIGO_PAIS.length) : n;
+}
+
+/** De los 8 dígitos arma el número completo que se guarda y usa WhatsApp. */
+function telefonoCompleto(local) {
+  const n = String(local || '').replace(/\D/g, '');
+  if (!n) return '';
+  return n.startsWith(CODIGO_PAIS) ? n : CODIGO_PAIS + n;
+}
+
+/** Cómo se muestra en las listas: +591 71234567 */
+function telefonoMostrar(guardado) {
+  const l = telefonoLocal(guardado);
+  return l ? `+${CODIGO_PAIS} ${l}` : '—';
+}
+
+/**
+ * Campo de teléfono con el +591 fijo al lado.
+ * @param {string} nombre   name del input
+ * @param {string} valor    número guardado (con o sin código de país)
+ * @param {boolean} obligatorio
+ */
+function campoTelefono(nombre, valor, obligatorio = false) {
+  return `<div class="tel-campo">
+      <span class="tel-pais">+${CODIGO_PAIS}</span>
+      <input name="${nombre}" type="tel" inputmode="numeric" maxlength="8"
+             placeholder="71234567" ${obligatorio ? 'required' : ''}
+             value="${telefonoLocal(valor)}">
+    </div>`;
+}
+
+/**
+ * Revisa los 8 dígitos y devuelve el número completo.
+ * Lanza un error entendible si está mal.
+ */
+function validarTelefono(valorDelCampo, obligatorio = true) {
+  let n = String(valorDelCampo || '').replace(/\D/g, '');
+  if (!n) {
+    if (obligatorio) throw new Error('Falta el número de celular (8 dígitos).');
+    return '';
+  }
+  // Si pegaron el número completo con el código de país, se acepta igual
+  if (n.length === CODIGO_PAIS.length + 8 && n.startsWith(CODIGO_PAIS)) {
+    n = n.slice(CODIGO_PAIS.length);
+  }
+  if (n.length !== 8) {
+    throw new Error(`El celular debe tener 8 dígitos; escribiste ${n.length}. No hace falta poner el ${CODIGO_PAIS}.`);
+  }
+  return telefonoCompleto(n);
+}

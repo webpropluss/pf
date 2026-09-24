@@ -46,7 +46,7 @@ async function cargarPases(contenido) {
               <tr>
                 <td>${avatarHtml(p.alumnos?.nombre || '?', p.alumnos?.foto_url)}</td>
                 <td><strong>${p.alumnos?.nombre || '—'}</strong>
-                    <div class="subtexto">${p.alumnos?.telefono || ''}</div></td>
+                    <div class="subtexto">${telefonoMostrar(p.alumnos?.telefono)}</div></td>
                 <td>${util.fecha(p.fecha)}${p.fecha === hoy ? ' <span class="pill pill-verde">Hoy</span>' : ''}</td>
                 <td>${p.horarios
                       ? `${p.horarios.disciplinas?.nombre || ''} · ${p.horarios.dias} ${p.horarios.hora_inicio}`
@@ -82,8 +82,8 @@ async function dialogoPase(precioSugerido) {
       <div class="fila">
         <div class="campo"><label>Nombre del visitante</label>
           <input name="nombre_visitante" placeholder="Nombre y apellido"></div>
-        <div class="campo"><label>Teléfono (WhatsApp)</label>
-          <input name="telefono_visitante" placeholder="59171234567"></div>
+        <div class="campo"><label>Celular (WhatsApp)</label>
+          ${campoTelefono('telefono_visitante', '', false)}</div>
       </div>
       <p class="subtexto" style="margin:-8px 0 14px">
         Queda guardado como alumno, así puedes invitarlo después a sacar mensualidad.</p>
@@ -117,9 +117,9 @@ async function dialogoPase(precioSugerido) {
     // Visitante nuevo: se crea como alumno antes de registrar el pase
     if (alumnoId === 'nuevo') {
       const nombre = form.nombre_visitante.value.trim();
-      const telefono = form.telefono_visitante.value.replace(/[^\d]/g, '');
+      const telefono = validarTelefono(form.telefono_visitante.value);
       if (!nombre) throw new Error('Escribe el nombre del visitante.');
-      if (!telefono) throw new Error('El teléfono es necesario para poder avisarle después.');
+      if (!telefono) throw new Error('Falta el celular del visitante (8 dígitos).');
 
       const nuevo = verificar(await db.from('alumnos').insert({
         codigo: await siguienteCodigo('alumnos', 'ALU'),
