@@ -90,7 +90,7 @@ async function nuevaVenta() {
 
     <div class="fila">
       <div class="campo"><label>Descuento (Bs.)</label>
-        <input type="number" name="descuento" min="0" step="0.5" value="0" oninput="pintarLineasVenta()"></div>
+        <input type="number" name="descuento" min="0" step="0.01" value="0" oninput="pintarLineasVenta()"></div>
       <div class="campo"><label>Método de pago</label>
         <select name="metodo_pago">
           <option>Efectivo</option><option>QR</option><option>Tarjeta</option><option>Transferencia</option>

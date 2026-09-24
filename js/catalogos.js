@@ -43,7 +43,7 @@ async function dialogoDisciplina(id) {
     <div class="campo"><label>Nombre</label><input name="nombre" required value="${d.nombre}"></div>
     <div class="campo"><label>Descripción</label><input name="descripcion" value="${d.descripcion || ''}"></div>
     <div class="campo"><label>Precio mensual (Bs.)</label>
-      <input type="number" name="precio" min="0" step="0.5" required value="${d.precio_mensual}"></div>
+      <input type="number" name="precio" min="0" step="0.01" required value="${d.precio_mensual}"></div>
   `, async (form) => {
     const datos = {
       nombre: form.nombre.value.trim(),

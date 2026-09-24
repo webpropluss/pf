@@ -101,7 +101,7 @@ async function cargarConfiguracion(contenido) {
         <div class="campo"><label>Dirección</label><input name="direccion" value="${c.direccion || ''}"></div>
 
         <div class="campo"><label>Precio sugerido del pase del día (Bs.)</label>
-          <input type="number" name="precio_pase_dia" min="0" step="0.5" value="${c.precio_pase_dia || 25}">
+          <input type="number" name="precio_pase_dia" min="0" step="0.01" value="${c.precio_pase_dia || 25}">
           <span class="subtexto">Es solo el valor que viene puesto por defecto; se puede cambiar en cada pase.</span></div>
 
         <h3 style="margin:18px 0 12px">📲 Aviso automático de WhatsApp</h3>

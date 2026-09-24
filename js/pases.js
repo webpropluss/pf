@@ -91,7 +91,7 @@ async function dialogoPase(precioSugerido) {
       <div class="campo"><label>Fecha</label>
         <input type="date" name="fecha" required value="${util.hoy()}"></div>
       <div class="campo"><label>Monto Bs.</label>
-        <input type="number" name="monto" min="0" step="0.5" required value="${precioSugerido}"></div>
+        <input type="number" name="monto" min="0" step="0.01" required value="${precioSugerido}"></div>
     </div>
 
     <div class="campo"><label>Clase / horario <span class="subtexto">(opcional)</span></label>

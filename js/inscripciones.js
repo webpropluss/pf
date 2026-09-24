@@ -94,7 +94,7 @@ async function nuevaInscripcion() {
       <div class="campo" style="margin:0"><label>Horario</label>
         <select id="selHorario"><option value="">—</option></select></div>
       <div class="campo" style="margin:0"><label>Precio Bs. <span class="subtexto">(editable)</span></label>
-        <input type="number" id="inpPrecio" min="0" step="0.5" placeholder="0.00"></div>
+        <input type="number" id="inpPrecio" min="0" step="0.01" placeholder="0.00"></div>
       <div class="campo" style="margin:0"><label>Meses</label>
         <input type="number" id="inpMeses" min="1" value="1"></div>
       <button type="button" class="btn btn-oscuro" onclick="agregarDetalleIns()"
@@ -105,7 +105,7 @@ async function nuevaInscripcion() {
 
     <div class="fila">
       <div class="campo"><label>Descuento (Bs.)</label>
-        <input type="number" name="descuento" min="0" step="0.5" value="0" oninput="pintarDetallesIns()"></div>
+        <input type="number" name="descuento" min="0" step="0.01" value="0" oninput="pintarDetallesIns()"></div>
       <div class="campo"><label>Método de pago</label>
         <select name="metodo_pago">
           <option>Efectivo</option><option>QR</option><option>Tarjeta</option><option>Transferencia</option>
@@ -114,7 +114,7 @@ async function nuevaInscripcion() {
 
     <h3 style="font-size:18px;margin:6px 0 10px">Cobro</h3>
     <div class="campo"><label>Paga ahora (Bs.)</label>
-      <input type="number" name="pago_inicial" min="0" step="0.5" value="0"
+      <input type="number" name="pago_inicial" min="0" step="0.01" value="0"
              oninput="pagoEditadoAMano = true; pintarDetallesIns()">
       <span class="subtexto">Viene con el total puesto. Si paga menos, la diferencia
         queda como saldo pendiente en Pagos. Si pone 0, no se cobra nada ahora.</span></div>

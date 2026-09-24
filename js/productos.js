@@ -113,11 +113,11 @@ async function dialogoProducto(id) {
 
     <div class="fila">
       <div class="campo"><label>Precio de compra (Bs.)</label>
-        <input type="number" name="precio_compra" min="0" step="0.5" required
+        <input type="number" name="precio_compra" min="0" step="0.01" required
                value="${p.precio_compra}" oninput="calcularMargen()">
         <span class="subtexto">Lo que te cuesta al proveedor.</span></div>
       <div class="campo"><label>Precio de venta (Bs.)</label>
-        <input type="number" name="precio_venta" min="0" step="0.5" required
+        <input type="number" name="precio_venta" min="0" step="0.01" required
                value="${p.precio_venta}" oninput="calcularMargen()">
         <span class="subtexto">Lo que le cobras al cliente.</span></div>
     </div>

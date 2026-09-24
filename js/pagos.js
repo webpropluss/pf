@@ -77,7 +77,7 @@ function dialogoCobro(inscripcionId, alumnoId, saldo, alumnoNombre) {
   abrirModal(`Cobrar a ${alumnoNombre}`, `
     <p class="subtexto" style="margin-bottom:14px">Saldo pendiente: <strong>${util.bs(saldo)}</strong></p>
     <div class="campo"><label>Monto a cobrar (Bs.)</label>
-      <input type="number" name="monto" min="0.5" max="${saldo}" step="0.5" required value="${saldo}"></div>
+      <input type="number" name="monto" min="0.5" max="${saldo}" step="0.01" required value="${saldo}"></div>
     <div class="fila">
       <div class="campo"><label>Método</label>
         <select name="metodo"><option>Efectivo</option><option>QR</option><option>Tarjeta</option><option>Transferencia</option></select></div>
