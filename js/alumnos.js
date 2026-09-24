@@ -10,7 +10,9 @@ async function cargarAlumnos(contenido) {
   const filas = (lista) => lista.map(a => `
     <tr>
       <td>${avatarHtml(a.nombre, a.foto_url)}</td>
-      <td><strong>${a.nombre}</strong><div class="subtexto">${a.codigo}</div></td>
+      <td><strong>${a.nombre}</strong>
+          <div class="subtexto">${a.codigo}${String(a.codigo||'').startsWith('VIS')
+            ? ' · <span class="pill pill-amarillo">Visitante</span>' : ''}</div></td>
       <td>${telefonoMostrar(a.telefono)}</td>
       <td>${a.fecha_nacimiento ? edadDe(a.fecha_nacimiento) + ' años' : '—'}</td>
       <td>${a.activo ? '<span class="pill pill-verde">Activo</span>' : '<span class="pill pill-rojo">Inactivo</span>'}</td>
@@ -22,10 +24,19 @@ async function cargarAlumnos(contenido) {
       </td>
     </tr>`).join('');
 
+  const esVisitante = (a) => String(a.codigo || '').startsWith('VIS');
+  const nMens = alumnos.filter(a => !esVisitante(a)).length;
+  const nVis  = alumnos.filter(esVisitante).length;
+
   contenido.innerHTML = `
     <header class="cabecera"><h2>Alumnos</h2></header>
     <div class="toolbar">
       <input type="search" id="buscarAlumno" placeholder="Buscar por nombre o teléfono…">
+      <select id="filtroTipo">
+        <option value="todos">Todos (${alumnos.length})</option>
+        <option value="mensualidad">Con mensualidad (${nMens})</option>
+        <option value="visitantes">Visitantes de pase del día (${nVis})</option>
+      </select>
       <button class="btn btn-rojo" onclick="dialogoAlumno()">＋ Nuevo alumno</button>
     </div>
     <div class="panel">
@@ -39,11 +50,16 @@ async function cargarAlumnos(contenido) {
       </p>
     </div>`;
 
-  document.getElementById('buscarAlumno').addEventListener('input', (e) => {
-    const q = e.target.value.toLowerCase();
-    document.getElementById('tbodyAlumnos').innerHTML = filas(
-      alumnos.filter(a => (a.nombre + a.telefono + a.codigo).toLowerCase().includes(q)));
-  });
+  const repintar = () => {
+    const q = document.getElementById('buscarAlumno').value.toLowerCase();
+    const tipo = document.getElementById('filtroTipo').value;
+    document.getElementById('tbodyAlumnos').innerHTML = filas(alumnos.filter(a =>
+      (a.nombre + a.telefono + a.codigo).toLowerCase().includes(q) &&
+      (tipo === 'todos' ||
+       (tipo === 'visitantes' ?  esVisitante(a) : !esVisitante(a)))));
+  };
+  document.getElementById('buscarAlumno').addEventListener('input', repintar);
+  document.getElementById('filtroTipo').addEventListener('change', repintar);
 }
 
 function edadDe(fecha) {

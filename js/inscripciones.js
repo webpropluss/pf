@@ -15,7 +15,8 @@ async function cargarInscripciones(contenido) {
   const pagadoPor = {};
   (pagos.data || []).forEach(p => pagadoPor[p.inscripcion_id] = (pagadoPor[p.inscripcion_id] || 0) + Number(p.monto));
 
-  const esAdmin = perfilActual?.rol === 'Administrador';
+  const puedeAnular   = puedeAccion('anular');
+  const puedeEliminar = puedeAccion('eliminar');
 
   contenido.innerHTML = `
     <header class="cabecera"><h2>Inscripciones</h2></header>
@@ -45,9 +46,9 @@ async function cargarInscripciones(contenido) {
                 <td>${util.bs(saldo)}</td>
                 <td>${estado}</td>
                 <td class="acciones">
-                  ${esAdmin && !i.anulada
+                  ${puedeAnular && !i.anulada
                     ? `<button title="Anular: libera la plaza y conserva el pago (para quien se fue y vuelve con fechas nuevas)" onclick="anularInscripcion(${i.id})">🚫</button>` : ''}
-                  ${esAdmin
+                  ${puedeEliminar
                     ? `<button title="Eliminar definitivamente" onclick="eliminarInscripcion(${i.id}, ${i.numero})">🗑️</button>` : ''}
                 </td>
               </tr>`;

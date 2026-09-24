@@ -79,14 +79,12 @@ async function dialogoPase(precioSugerido) {
       </select></div>
 
     <div id="camposVisitante">
-      <div class="fila">
-        <div class="campo"><label>Nombre del visitante</label>
-          <input name="nombre_visitante" placeholder="Nombre y apellido"></div>
-        <div class="campo"><label>Celular (WhatsApp)</label>
-          ${campoTelefono('telefono_visitante', '', false)}</div>
-      </div>
-      <p class="subtexto" style="margin:-8px 0 14px">
-        Queda guardado como alumno, así puedes invitarlo después a sacar mensualidad.</p>
+      <div class="campo"><label>Nombre del visitante</label>
+        <input name="nombre_visitante" placeholder="Nombre y apellido"></div>
+      <div class="campo"><label>Celular <span class="subtexto">(opcional)</span></label>
+        ${campoTelefono('telefono_visitante', '', false)}
+        <span class="subtexto">Solo si quieres invitarlo después a sacar mensualidad.
+          Para un pase de un día no hace falta.</span></div>
     </div>
 
     <div class="fila">
@@ -114,15 +112,16 @@ async function dialogoPase(precioSugerido) {
   `, async (form) => {
     let alumnoId = form.alumno_id.value;
 
-    // Visitante nuevo: se crea como alumno antes de registrar el pase
+    // Visitante nuevo: basta con el nombre. El teléfono es opcional
+    // porque alguien que viene un solo día no necesita avisos.
     if (alumnoId === 'nuevo') {
       const nombre = form.nombre_visitante.value.trim();
-      const telefono = validarTelefono(form.telefono_visitante.value);
       if (!nombre) throw new Error('Escribe el nombre del visitante.');
-      if (!telefono) throw new Error('Falta el celular del visitante (8 dígitos).');
+      const telefono = validarTelefono(form.telefono_visitante.value, false);
 
+      // Código VIS- para distinguirlos de los alumnos con mensualidad
       const nuevo = verificar(await db.from('alumnos').insert({
-        codigo: await siguienteCodigo('alumnos', 'ALU'),
+        codigo: await siguienteCodigo('alumnos', 'VIS'),
         nombre, telefono,
       }).select('id').single());
       alumnoId = nuevo.id;

@@ -27,19 +27,17 @@ async function generarReporte() {
   const cont = document.getElementById('repResultado');
   cont.innerHTML = '<p class="cargando">Generando…</p>';
 
-  const [pagos, inscripciones, asistencias] = await Promise.all([
+  const [pagos, inscripciones] = await Promise.all([
     db.from('pagos').select('*, alumnos(nombre)')
       .gte('fecha', desde + 'T00:00:00').lte('fecha', hasta + 'T23:59:59').order('fecha'),
     db.from('inscripciones')
       .select('*, alumnos(nombre), inscripcion_detalles(precio_mensual, precio_lista, meses, disciplinas(nombre))')
       .eq('anulada', false)
       .gte('fecha', desde + 'T00:00:00').lte('fecha', hasta + 'T23:59:59'),
-    db.from('asistencias').select('presente').gte('fecha', desde).lte('fecha', hasta),
   ]);
 
   const totalCobrado = (pagos.data || []).reduce((s, p) => s + Number(p.monto), 0);
   const totalFacturado = (inscripciones.data || []).reduce((s, i) => s + Number(i.total), 0);
-  const presentes = (asistencias.data || []).filter(a => a.presente).length;
 
   // Ingresos facturados por disciplina + descuentos otorgados (precio especial)
   const porDisciplina = {};
@@ -60,7 +58,6 @@ async function generarReporte() {
       <div class="tarjeta acento"><div class="etiqueta">Cobrado en el rango</div><div class="valor">${util.bs(totalCobrado)}</div></div>
       <div class="tarjeta acento"><div class="etiqueta">Facturado (inscripciones)</div><div class="valor">${util.bs(totalFacturado)}</div></div>
       <div class="tarjeta acento"><div class="etiqueta">Inscripciones</div><div class="valor">${(inscripciones.data || []).length}</div></div>
-      <div class="tarjeta acento"><div class="etiqueta">Asistencias registradas</div><div class="valor">${presentes}</div></div>
       <div class="tarjeta acento"><div class="etiqueta">Descuentos otorgados</div><div class="valor">${util.bs(descuentosDados)}</div></div>
     </div>
 

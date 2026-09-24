@@ -22,7 +22,7 @@ async function cargarPagos(contenido) {
   const ingresosMes = (pagos.data || []).filter(p => String(p.fecha).slice(0, 7) === mes)
     .reduce((s, p) => s + Number(p.monto), 0);
 
-  const esAdmin = perfilActual?.rol === 'Administrador';
+  const esAdmin = puedeAccion('eliminarPago');
 
   contenido.innerHTML = `
     <header class="cabecera"><h2>Pagos</h2></header>

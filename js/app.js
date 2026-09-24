@@ -21,7 +21,6 @@ const modulos = {
   inscripciones: { titulo: 'Inscripciones', cargar: cargarInscripciones },
   pagos:         { titulo: 'Pagos',         cargar: cargarPagos },
   pases:         { titulo: 'Pases del día', cargar: cargarPases },
-  asistencia:    { titulo: 'Asistencia',    cargar: cargarAsistencia },
   reportes:      { titulo: 'Reportes',      cargar: cargarReportes },
   usuarios:      { titulo: 'Usuarios',      cargar: cargarUsuarios },
   configuracion: { titulo: 'Configuración', cargar: cargarConfiguracion },
@@ -40,9 +39,40 @@ const PERMISOS = {
   Cajero: ['dashboard', 'alumnos', 'inscripciones', 'pagos', 'pases'],
 };
 
+// ============================================================
+// QUIÉN PUEDE HACER CADA ACCIÓN DELICADA
+// Para quitarle un permiso a un rol, se borra de la lista.
+// ============================================================
+const PERMISOS_ACCION = {
+  // 🚫 Anular una inscripción: libera la plaza y CONSERVA el pago.
+  //    Es la que se usa cuando el alumno deja de venir y después vuelve.
+  anular: ['Administrador', 'Cajero', 'Recepcionista'],
+
+  // 🗑️ Eliminar definitivamente: borra la inscripción Y SUS PAGOS.
+  //    Solo para errores y pruebas. Quitar 'Cajero' de aquí si se
+  //    prefiere que caja no pueda borrar registros de dinero.
+  eliminar: ['Administrador', 'Cajero'],
+
+  // 🗑️ Eliminar un pago suelto desde el módulo Pagos
+  eliminarPago: ['Administrador'],
+};
+
+/** Compara roles sin que importen mayúsculas ni espacios de más. */
+function rolEsUnoDe(lista) {
+  const r = String(perfilActual?.rol || '').trim().toLowerCase();
+  return (lista || []).some(x => x.toLowerCase() === r);
+}
+
+/** ¿El rol actual puede hacer esta acción? */
+function puedeAccion(accion) {
+  return rolEsUnoDe(PERMISOS_ACCION[accion]);
+}
+
 /** Módulos permitidos para el rol indicado. */
 function modulosPermitidos(rol) {
-  if (PERMISOS[rol]) return PERMISOS[rol];
+  const buscado = String(rol || '').trim().toLowerCase();
+  const clave = Object.keys(PERMISOS).find(k => k.toLowerCase() === buscado);
+  if (clave) return PERMISOS[clave];
   // Recepción, instructores y cualquier otro rol: todo menos lo del administrador
   return Object.keys(modulos).filter(m => m !== 'usuarios' && m !== 'configuracion');
 }
