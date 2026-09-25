@@ -5,6 +5,7 @@
 
 let insDetalles = [];   // líneas de la nueva inscripción
 let insCatalogo = { disciplinas: [], horarios: [] };
+let insAlumnos = [];    // lista de alumnos, para el buscador
 let pagoEditadoAMano = false;   // si tocan "Paga ahora", deja de seguir al total
 
 async function cargarInscripciones(contenido) {
@@ -62,11 +63,12 @@ async function cargarInscripciones(contenido) {
 
 async function nuevaInscripcion() {
   const [alumnos, disciplinas, horarios] = await Promise.all([
-    db.from('alumnos').select('id, nombre').eq('activo', true).order('nombre'),
+    db.from('alumnos').select('id, nombre, codigo, telefono, foto_url').eq('activo', true).order('nombre'),
     db.from('disciplinas').select('*').eq('activo', true).order('nombre'),
     db.from('horarios').select('*, instructores(nombre)').eq('activo', true).order('id'),
   ]);
   insCatalogo = { disciplinas: disciplinas.data || [], horarios: horarios.data || [] };
+  insAlumnos = alumnos.data || [];
   insDetalles = [];
   pagoEditadoAMano = false;
 
@@ -75,10 +77,16 @@ async function nuevaInscripcion() {
 
   abrirModal('Nueva inscripción', `
     <div class="campo"><label>Alumno</label>
-      <select name="alumno_id" required>
-        <option value="">— Elegir alumno —</option>
-        ${(alumnos.data || []).map(a => `<option value="${a.id}">${a.nombre}</option>`).join('')}
-      </select></div>
+      <div id="insBuscador">
+        <input type="search" id="insBuscaAlumno" autocomplete="off"
+               placeholder="Escribe el nombre del alumno…"
+               oninput="buscarAlumnoIns()">
+        <span class="subtexto">Escribe unas letras del nombre y tócalo en la lista.</span>
+      </div>
+      <div id="insElegido"></div>
+      <div id="insResultados" class="resultados-venta"></div>
+      <input type="hidden" name="alumno_id" id="insAlumnoId" value="">
+    </div>
     <div class="fila">
       <div class="campo"><label>Inicio</label><input type="date" name="fecha_inicio" required value="${hoy}"></div>
       <div class="campo"><label>Fin (vence)</label><input type="date" name="fecha_fin" required value="${fin.toISOString().slice(0,10)}"></div>
@@ -121,6 +129,18 @@ async function nuevaInscripcion() {
 
     <div class="total-grande" id="totalIns">Bs. 0.00 <small>total</small></div>
   `, async (form) => {
+    // Si escribió un nombre que deja una sola coincidencia pero no llegó
+    // a tocarla, se toma esa: es la que quería.
+    if (!form.alumno_id.value) {
+      const unico = alumnosQueCoinciden();
+      if (unico.length === 1) elegirAlumnoIns(unico[0].id);
+    }
+    if (!form.alumno_id.value) {
+      throw new Error(document.getElementById('insBuscaAlumno')?.value.trim()
+        ? 'Toca el alumno en la lista para seleccionarlo.'
+        : 'Busca al alumno por su nombre y tócalo en la lista.');
+    }
+
     // Si eligió disciplina y horario pero no tocó "＋ Agregar clase",
     // se agrega sola: es lo que quería hacer.
     if (!insDetalles.length) agregarDetalleIns(true);
@@ -154,7 +174,78 @@ async function nuevaInscripcion() {
       : `Inscripción registrada (INS-${id}). Queda pendiente de pago.`);
     abrirModulo('inscripciones');
   }, 'Guardar inscripción');
+  buscarAlumnoIns();
   pintarDetallesIns();
+}
+
+// ---------------------- BUSCADOR DE ALUMNO ----------------------
+// Con 100 alumnos una lista desplegable es inmanejable: se escribe
+// el nombre, aparecen las coincidencias y se toca la correcta.
+
+/** Alumnos que coinciden con lo que se escribió (máx. 8). */
+function alumnosQueCoinciden() {
+  const q = (document.getElementById('insBuscaAlumno')?.value || '').trim().toLowerCase();
+  if (!q) return [];
+  return insAlumnos
+    .filter(a => (a.nombre + ' ' + (a.codigo || '') + ' ' + (a.telefono || ''))
+      .toLowerCase().includes(q))
+    .slice(0, 6);   // 6 caben en la pantalla del teléfono sin tapar el resto
+}
+
+/** Dibuja la lista de coincidencias mientras se escribe. */
+function buscarAlumnoIns() {
+  const caja = document.getElementById('insResultados');
+  if (!caja) return;
+
+  // Con un alumno ya elegido no se muestra la lista
+  if (document.getElementById('insAlumnoId')?.value) { caja.innerHTML = ''; return; }
+
+  const q = (document.getElementById('insBuscaAlumno')?.value || '').trim();
+  if (!q) { caja.innerHTML = ''; return; }
+
+  const hallados = alumnosQueCoinciden();
+  caja.innerHTML = hallados.length ? hallados.map(a => `
+    <button type="button" class="resultado-item" onclick="elegirAlumnoIns(${a.id})">
+      ${avatarHtml(a.nombre, a.foto_url)}
+      <span class="texto">
+        <span class="nombre">${a.nombre}</span>
+        <span class="datos">${a.codigo || ''}${a.telefono ? ' · ' + telefonoMostrar(a.telefono) : ''}</span>
+      </span>
+    </button>`).join('')
+    : `<p class="subtexto" style="padding:4px 0 6px">No hay ningún alumno que diga “${q}”.
+         Revisa cómo está escrito o regístralo primero en <strong>Alumnos</strong>.</p>`;
+}
+
+/** Deja el alumno fijo a la vista y esconde el buscador. */
+function elegirAlumnoIns(id) {
+  const a = insAlumnos.find(x => x.id === id);
+  if (!a) return;
+
+  document.getElementById('insAlumnoId').value = a.id;
+  document.getElementById('insResultados').innerHTML = '';
+  const buscador = document.getElementById('insBuscador');
+  if (buscador) buscador.hidden = true;
+
+  document.getElementById('insElegido').innerHTML = `
+    <div class="elegido">
+      ${avatarHtml(a.nombre, a.foto_url)}
+      <span class="texto">
+        <span class="nombre">${a.nombre}</span>
+        <span class="datos">${a.codigo || ''}${a.telefono ? ' · ' + telefonoMostrar(a.telefono) : ''}</span>
+      </span>
+      <button type="button" class="btn btn-oscuro" onclick="cambiarAlumnoIns()">Cambiar</button>
+    </div>`;
+}
+
+/** Vuelve al buscador para elegir otro alumno. */
+function cambiarAlumnoIns() {
+  document.getElementById('insAlumnoId').value = '';
+  document.getElementById('insElegido').innerHTML = '';
+  const buscador = document.getElementById('insBuscador');
+  if (buscador) buscador.hidden = false;
+  const campo = document.getElementById('insBuscaAlumno');
+  if (campo) { campo.value = ''; campo.focus(); }
+  buscarAlumnoIns();
 }
 
 function filtrarHorariosIns() {

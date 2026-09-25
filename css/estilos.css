@@ -67,6 +67,10 @@ img { max-width: 100%; }
    y empuja los campos y botones fuera de la pantalla. */
 .campo, .fila > *, .detalle-linea > * { min-width: 0; }
 .campo input, .campo select, .campo textarea { width: 100%; max-width: 100%; }
+.campo textarea { resize: vertical; min-height: 62px; line-height: 1.4; }
+
+/* El atributo hidden gana siempre, aunque el elemento tenga display propio */
+[hidden] { display: none !important; }
 
 /* ============================================================
    LOGIN
@@ -531,6 +535,36 @@ tr:hover td { background: var(--negro-suave); }
 .resultado-item[disabled] { opacity: .5; cursor: not-allowed; border-left-color: var(--borde); }
 .resultado-item .nombre { font-weight: 600; }
 .resultado-item .datos  { font-size: 13px; color: var(--texto-suave); white-space: nowrap; }
+
+/* Descripción del producto: segunda línea, más pequeña */
+.descripcion {
+  display: block; font-size: 13px; line-height: 1.35;
+  color: var(--texto-suave); margin: 2px 0;
+}
+.resultado-item .descripcion { white-space: normal; }
+
+/* ------------------------------------------------------------
+   ALUMNO ELEGIDO en el buscador de la inscripción
+   ------------------------------------------------------------ */
+.elegido {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--negro-suave);
+  border: 1px solid var(--verde, #3ecf8e);
+  border-left: 3px solid var(--verde, #3ecf8e);
+  border-radius: 8px; padding: 10px 12px; margin-bottom: 14px;
+}
+.elegido .avatar { flex: 0 0 40px; }
+.elegido .texto { display: flex; flex-direction: column; gap: 2px; flex: 1 1 140px; min-width: 0; }
+.elegido .nombre { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.elegido .datos  { font-size: 13px; color: var(--texto-suave); }
+.elegido .btn    { flex: 0 0 auto; padding: 10px 16px; font-size: 13px; min-height: 40px; }
+
+/* En teléfonos angostos el botón baja a su propia línea: así el nombre
+   del alumno se lee entero en vez de partirse en tres renglones. */
+@media (max-width: 420px) {
+  .elegido { flex-wrap: wrap; }
+  .elegido .btn { flex: 1 0 100%; min-height: 44px; }
+}
 
 /* Contador − 2 + para la cantidad de cada línea */
 .contador { display: inline-flex; align-items: center; gap: 4px; }

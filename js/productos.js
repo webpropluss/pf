@@ -28,7 +28,9 @@ async function cargarProductos(contenido) {
     return `
     <tr>
       <td>${fotoProductoHtml(p)}</td>
-      <td><strong>${p.nombre}</strong><div class="subtexto">${p.codigo} · ${p.categoria}</div></td>
+      <td><strong>${p.nombre}</strong>
+          ${p.descripcion ? `<div class="descripcion">${p.descripcion}</div>` : ''}
+          <div class="subtexto">${p.codigo} · ${p.categoria}</div></td>
       <td>${util.bs(p.precio_compra)}</td>
       <td><strong>${util.bs(p.precio_venta)}</strong></td>
       <td>${util.bs(margen)} <span class="subtexto">(${pct}%)</span></td>
@@ -90,7 +92,7 @@ async function cargarProductos(contenido) {
     const q = document.getElementById('buscarProducto').value.toLowerCase();
     const cat = document.getElementById('filtroCategoria').value;
     document.getElementById('tbodyProductos').innerHTML = filas(productos.filter(p =>
-      (p.nombre + p.codigo + p.categoria).toLowerCase().includes(q) &&
+      (p.nombre + p.codigo + p.categoria + ' ' + (p.descripcion || '')).toLowerCase().includes(q) &&
       (!cat || p.categoria === cat)));
   };
   document.getElementById('buscarProducto').addEventListener('input', repintar);
@@ -100,11 +102,17 @@ async function cargarProductos(contenido) {
 async function dialogoProducto(id) {
   const p = id
     ? verificar(await db.from('productos').select('*').eq('id', id).single())
-    : { nombre: '', categoria: 'Suplementos', precio_compra: '', precio_venta: '', stock: 0, stock_minimo: 3 };
+    : { nombre: '', descripcion: '', categoria: 'Suplementos', precio_compra: '', precio_venta: '', stock: 0, stock_minimo: 3 };
 
   abrirModal(id ? 'Editar producto' : 'Nuevo producto', `
     <div class="campo"><label>Nombre</label>
       <input name="nombre" required placeholder="Ej. Agua 600 ml" value="${p.nombre}"></div>
+
+    <div class="campo"><label>Descripción <span class="subtexto">(opcional)</span></label>
+      <textarea name="descripcion" rows="2" maxlength="300"
+                placeholder="Ej. Bucal doble, para boxeo · con estuche">${p.descripcion || ''}</textarea>
+      <span class="subtexto">Sirve para distinguir productos parecidos: sabor, tamaño,
+        para qué es. Se ve en el buscador de la caja.</span></div>
 
     <div class="campo"><label>Categoría</label>
       <select name="categoria">
@@ -154,6 +162,7 @@ async function dialogoProducto(id) {
 
     const datos = {
       nombre: form.nombre.value.trim(),
+      descripcion: form.descripcion.value.trim(),
       categoria: form.categoria.value,
       precio_compra: compra,
       precio_venta: venta,

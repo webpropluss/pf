@@ -12,7 +12,7 @@ async function cargarVentas(contenido) {
   const verGanancia = puedeAccion('verGanancias');
 
   const ventas = verificar(await db.from('ventas')
-    .select('*, venta_detalles(nombre_producto, cantidad, precio_unitario)')
+    .select('*, venta_detalles(nombre_producto, descripcion_producto, cantidad, precio_unitario)')
     .order('id', { ascending: false }).limit(150));
 
   const deHoy = ventas.filter(v => !v.anulada && String(v.fecha).slice(0, 10) === hoy);
@@ -52,7 +52,10 @@ async function cargarVentas(contenido) {
               <tr style="${v.anulada ? 'opacity:.5' : ''}">
                 <td>${v.numero}</td>
                 <td>${new Date(v.fecha).toLocaleString('es-BO', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}</td>
-                <td>${(v.venta_detalles || []).map(d => `${d.cantidad}× ${d.nombre_producto}`).join(', ') || '—'}</td>
+                <td>${(v.venta_detalles || []).map(d =>
+                    `${d.cantidad}× ${d.nombre_producto}` +
+                    (d.descripcion_producto ? ` <span class="subtexto">(${d.descripcion_producto})</span>` : '')
+                  ).join('<br>') || '—'}</td>
                 <td><strong>${util.bs(v.total)}</strong>${v.anulada ? ' <span class="pill pill-rojo">Anulada</span>' : ''}</td>
                 ${verGanancia ? `<td>${util.bs(v.ganancia)}</td>` : ''}
                 <td>${v.metodo_pago}</td>
@@ -74,7 +77,7 @@ async function cargarVentas(contenido) {
 
 async function nuevaVenta() {
   ventaCatalogo = verificar(await db.from('productos')
-    .select('id, nombre, categoria, precio_venta, stock, foto_url')
+    .select('id, nombre, descripcion, categoria, precio_venta, stock, foto_url')
     .eq('activo', true).order('nombre'));
   ventaLineas = [];
 
@@ -132,7 +135,8 @@ function buscarProductoVenta() {
   }
 
   const hallados = ventaCatalogo
-    .filter(p => (p.nombre + ' ' + p.categoria).toLowerCase().includes(q))
+    .filter(p => (p.nombre + ' ' + p.categoria + ' ' + (p.descripcion || ''))
+      .toLowerCase().includes(q))
     .slice(0, 8);
 
   caja.innerHTML = hallados.length ? hallados.map(p => {
@@ -144,6 +148,7 @@ function buscarProductoVenta() {
         ${fotoProductoHtml(p)}
         <span class="texto">
           <span class="nombre">${p.nombre}</span>
+          ${p.descripcion ? `<span class="descripcion">${p.descripcion}</span>` : ''}
           <span class="datos">${util.bs(p.precio_venta)} ·
             ${libre > 0 ? `quedan ${libre}` : '<span style="color:#ff8a8f">sin stock</span>'}</span>
         </span>
