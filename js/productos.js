@@ -41,11 +41,11 @@ async function cargarProductos(contenido) {
       <td>${p.activo ? '<span class="pill pill-verde">A la venta</span>'
                      : '<span class="pill pill-rojo">Retirado</span>'}</td>
       <td class="acciones">
-        <button title="Editar" onclick="dialogoProducto(${p.id})">✏️</button>
-        <button title="Reponer o corregir stock" onclick="dialogoStock(${p.id})">📦</button>
+        <button title="Editar nombre y precios" onclick="dialogoProducto(${p.id})">✏️<span class="solo-movil"> Editar</span></button>
+        <button title="Reponer o corregir stock" onclick="dialogoStock(${p.id})">📦<span class="solo-movil"> Stock</span></button>
         <button title="${p.activo ? 'Retirar de la venta' : 'Volver a vender'}"
-                onclick="alternarProducto(${p.id}, ${p.activo})">${p.activo ? '🚫' : '♻️'}</button>
-        <button title="Eliminar definitivamente" onclick="eliminarProducto(${p.id}, '${p.nombre.replace(/'/g, '')}')">🗑️</button>
+                onclick="alternarProducto(${p.id}, ${p.activo})">${p.activo ? '🚫' : '♻️'}<span class="solo-movil"> ${p.activo ? 'Retirar' : 'Volver a vender'}</span></button>
+        <button title="Eliminar definitivamente" onclick="eliminarProducto(${p.id}, '${p.nombre.replace(/'/g, '')}')">🗑️<span class="solo-movil"> Eliminar</span></button>
       </td>
     </tr>`; }).join('');
 
@@ -83,8 +83,9 @@ async function cargarProductos(contenido) {
         <tbody id="tbodyProductos">${filas(productos)}</tbody>
       </table>
       <p class="subtexto" style="margin-top:12px">
-        📦 repone o corrige el stock · 🚫 lo retira de la venta sin borrar su historial ·
-        🗑️ lo elimina (solo si nunca se vendió).
+        ¿Compraste más mercadería? Toca <strong>📦 Stock</strong> en ese producto.
+        <strong>🚫 Retirar</strong> lo saca de la venta pero guarda su historial ·
+        <strong>🗑️ Eliminar</strong> solo funciona si nunca se vendió.
       </p>
     </div>`;
 
@@ -131,12 +132,26 @@ async function dialogoProducto(id) {
     </div>
     <p class="subtexto" id="margenAviso" style="margin:-8px 0 14px"></p>
 
+    ${id ? `
+    <div class="campo"><label>Stock</label>
+      <div class="stock-aviso">
+        <span>Ahora hay <strong>${p.stock}</strong> unidad${p.stock === 1 ? '' : 'es'}</span>
+        <button type="button" class="btn btn-oscuro" onclick="irAStockDesdeProducto(${id})">
+          📦 Reponer o corregir</button>
+      </div>
+      <span class="subtexto">¿Compraste más? Toca <strong>Reponer o corregir</strong>: ahí pones
+        cuántas llegaron y por qué. Se hace en su propia pantalla para que quede anotado
+        cada movimiento y después puedas saber de dónde salió cada unidad.</span></div>
+
+    <div class="campo"><label>Avisar cuando queden</label>
+      <input type="number" name="stock_minimo" min="0" value="${p.stock_minimo}"></div>
+    ` : `
     <div class="fila">
-      <div class="campo"><label>Stock ${id ? '<span class="subtexto">(se ajusta con 📦)</span>' : 'inicial'}</label>
-        <input type="number" name="stock" min="0" value="${p.stock}" ${id ? 'disabled' : ''}></div>
+      <div class="campo"><label>Stock inicial</label>
+        <input type="number" name="stock" min="0" value="${p.stock}"></div>
       <div class="campo"><label>Avisar cuando queden</label>
         <input type="number" name="stock_minimo" min="0" value="${p.stock_minimo}"></div>
-    </div>
+    </div>`}
 
     <div class="campo"><label>Foto <span class="subtexto">(opcional)</span></label>
       <div class="foto-campo">
@@ -194,6 +209,22 @@ async function dialogoProducto(id) {
   calcularMargen();
 }
 
+/**
+ * Va del formulario del producto a la pantalla de stock.
+ * Avisa antes si había cambios escritos, para no perderlos sin querer.
+ */
+function irAStockDesdeProducto(id) {
+  const f = document.getElementById('formModal');
+  const sucio = f && [...f.elements].some(el =>
+    el.name && el.type !== 'file' && typeof el.defaultValue === 'string' &&
+    el.value !== el.defaultValue);
+  if (sucio && !confirmar(
+    'Tienes cambios sin guardar en este producto.\n\n' +
+    'Si pasas al stock ahora, esos cambios se pierden.\n' +
+    '¿Continuar de todos modos?')) return;
+  dialogoStock(id);
+}
+
 /** Muestra la ganancia mientras se escriben los precios. */
 function calcularMargen() {
   const f = document.getElementById('formModal');
@@ -214,15 +245,24 @@ async function dialogoStock(id) {
   const p = verificar(await db.from('productos').select('nombre, stock').eq('id', id).single());
 
   abrirModal(`Stock de ${p.nombre}`, `
-    <p class="subtexto" style="margin-bottom:14px">Stock actual: <strong>${p.stock}</strong></p>
-    <div class="fila">
-      <div class="campo"><label>Llegaron (sumar)</label>
-        <input type="number" id="stockSuma" min="0" placeholder="0" oninput="previsualizarStock(${p.stock})"></div>
-      <div class="campo"><label>o dejar el total en</label>
-        <input type="number" name="nuevo" min="0" value="${p.stock}" oninput="document.getElementById('stockSuma').value=''"></div>
-    </div>
+    <p style="margin-bottom:16px">Ahora hay <strong>${p.stock}</strong>
+      unidad${p.stock === 1 ? '' : 'es'}.</p>
+
+    <div class="campo"><label>¿Cuántas llegaron?</label>
+      <input type="number" id="stockSuma" min="0" placeholder="Ej. 12"
+             oninput="previsualizarStock(${p.stock})">
+      <span class="subtexto">Esto es lo que usas cuando compras más al proveedor:
+        se suman a las que ya tenías.</span></div>
+
+    <div class="campo"><label>O deja el total exacto en</label>
+      <input type="number" name="nuevo" min="0" value="${p.stock}"
+             oninput="document.getElementById('stockSuma').value=''; previsualizarStock(${p.stock}, true)">
+      <span class="subtexto">Para cuando contaste la mercadería y no cuadra, o se rompió algo.</span></div>
+
     <div class="campo"><label>Motivo</label>
       <input name="motivo" placeholder="Ej. llegó pedido del proveedor"></div>
+
+    <div class="total-grande" id="stockResultado"></div>
   `, async (form) => {
     const nuevo = Number(form.nuevo.value);
     if (isNaN(nuevo) || nuevo < 0) throw new Error('El stock no puede ser negativo.');
@@ -232,16 +272,36 @@ async function dialogoStock(id) {
       p_usuario: perfilActual?.nombre || '',
     });
     if (r.error) throw new Error(r.error.message);
-    notificar(`Stock de ${p.nombre}: ahora hay ${nuevo}.`);
+    notificar(nuevo > p.stock
+      ? `${p.nombre}: entraron ${nuevo - p.stock}, ahora hay ${nuevo}.`
+      : `Stock de ${p.nombre}: ahora hay ${nuevo}.`);
     abrirModulo('productos');
   }, 'Guardar stock');
+  previsualizarStock(p.stock, true);
 }
 
-/** Al escribir cuántos llegaron, calcula el total solo. */
-function previsualizarStock(actual) {
-  const suma = Number(document.getElementById('stockSuma').value || 0);
+/**
+ * Mantiene los dos campos de acuerdo y muestra cómo queda el stock.
+ * @param {number}  actual      unidades que hay ahora
+ * @param {boolean} soloMostrar true si el usuario escribió el total a mano
+ */
+function previsualizarStock(actual, soloMostrar = false) {
   const campo = document.querySelector('#formModal [name="nuevo"]');
-  if (campo) campo.value = actual + suma;
+  if (!campo) return;
+
+  if (!soloMostrar) {
+    const suma = Number(document.getElementById('stockSuma')?.value || 0);
+    campo.value = actual + suma;
+  }
+
+  const aviso = document.getElementById('stockResultado');
+  if (!aviso) return;
+  const nuevo = Number(campo.value || 0);
+  const dif = nuevo - actual;
+  aviso.innerHTML = `${nuevo} <small>` + (
+    dif > 0 ? `entran ${dif} · antes había ${actual}`
+    : dif < 0 ? `salen ${-dif} · antes había ${actual}`
+    : 'sin cambios') + '</small>';
 }
 
 async function alternarProducto(id, activo) {
