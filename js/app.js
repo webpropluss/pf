@@ -23,6 +23,7 @@ const modulos = {
   pases:         { titulo: 'Pases del día', cargar: cargarPases },
   ventas:        { titulo: 'Ventas',        cargar: cargarVentas },
   productos:     { titulo: 'Productos',     cargar: cargarProductos },
+  promociones:   { titulo: 'Promociones',   cargar: cargarPromociones },
   reportes:      { titulo: 'Reportes',      cargar: cargarReportes },
   usuarios:      { titulo: 'Usuarios',      cargar: cargarUsuarios },
   configuracion: { titulo: 'Configuración', cargar: cargarConfiguracion },
@@ -38,7 +39,10 @@ const PERMISOS = {
   Administrador: Object.keys(modulos),
 
   // Caja: solo lo que necesita para cobrar e inscribir
-  Cajero: ['dashboard', 'alumnos', 'inscripciones', 'pagos', 'pases', 'ventas'],
+  // 'promociones' está aquí porque en una inauguración o una dinámica
+  // es caja quien entrega los regalos: si no lo puede anotar, el stock
+  // se descuadra. Lo que NO puede es anular ni borrar esos registros.
+  Cajero: ['dashboard', 'alumnos', 'inscripciones', 'pagos', 'pases', 'ventas', 'promociones'],
 };
 
 // ============================================================
@@ -57,6 +61,13 @@ const PERMISOS_ACCION = {
 
   // 🗑️ Eliminar un pago suelto desde el módulo Pagos
   eliminarPago: ['Administrador'],
+
+  // 🚫🗑️ Deshacer o borrar un regalo promocional.
+  //    Caja SÍ puede registrar regalos (los entrega en los eventos),
+  //    pero no puede deshacerlos: registrar una salida de mercadería
+  //    y luego borrarla es la forma más fácil de que se pierda stock
+  //    sin que quede rastro. Agregar 'Cajero' aquí si se prefiere.
+  anularPromo: ['Administrador'],
 
   // Ver cuánto se gana (precio de compra y ganancia de las ventas).
   // Caja no lo ve: es información del negocio, no hace falta para cobrar.

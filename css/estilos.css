@@ -185,6 +185,13 @@ tr:hover td { background: var(--negro-suave); }
 .grafico .barra .dia { font-size: 12px; color: var(--texto-suave); }
 .grafico .barra .monto { font-size: 12px; font-weight: 600; }
 
+/* Muchas barras: se apretan y se quita el importe de encima, que no cabe.
+   Si aun así no entran, el gráfico se desliza dentro de su propio recuadro. */
+.grafico.compacto { gap: 5px; overflow-x: auto; padding-bottom: 4px; }
+.grafico.compacto .barra { flex: 1 0 auto; min-width: 22px; }
+.grafico.compacto .barra .monto { display: none; }
+.grafico.compacto .barra .dia { font-size: 10px; white-space: nowrap; }
+
 /* ---------- Responsive: tablet ---------- */
 @media (max-width: 900px) {
   .login-contenedor { grid-template-columns: 1fr; }
@@ -536,6 +543,12 @@ tr:hover td { background: var(--negro-suave); }
 .resultado-item .nombre { font-weight: 600; }
 .resultado-item .datos  { font-size: 13px; color: var(--texto-suave); white-space: nowrap; }
 
+/* Varias líneas dentro de una celda (los productos de una venta o un regalo).
+   Va en un solo bloque: si no, en el modo tarjeta del teléfono cada trozo
+   suelto se vuelve un elemento flex que no se parte y desborda la pantalla. */
+.lineas { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.lineas > span { overflow-wrap: anywhere; }
+
 /* Descripción del producto: segunda línea, más pequeña */
 .descripcion {
   display: block; font-size: 13px; line-height: 1.35;
@@ -577,6 +590,35 @@ tr:hover td { background: var(--negro-suave); }
 .stock-aviso .btn { flex: 0 0 auto; padding: 10px 14px; font-size: 13px; min-height: 40px; }
 @media (max-width: 420px) {
   .stock-aviso .btn { flex: 1 0 100%; min-height: 44px; }
+}
+
+/* ------------------------------------------------------------
+   DASHBOARD · filtro de período
+   ------------------------------------------------------------ */
+.filtro-periodo { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.chip-periodo {
+  cursor: pointer; font-family: var(--fuente-texto); font-size: 14px;
+  color: var(--texto-suave); background: var(--negro-suave);
+  border: 1px solid var(--borde); border-radius: 999px;
+  padding: 9px 16px; min-height: 40px;
+  transition: border-color .12s, color .12s, background .12s;
+}
+.chip-periodo:hover { border-color: var(--rojo); color: var(--texto); }
+.chip-periodo.activo {
+  background: var(--rojo); border-color: var(--rojo);
+  color: #fff; font-weight: 600;
+}
+
+.rango-personal {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px;
+  background: var(--negro-suave); border: 1px solid var(--borde);
+  border-radius: 8px; padding: 14px; margin-bottom: 16px;
+}
+.rango-personal .campo { margin: 0; flex: 1 1 140px; min-width: 0; }
+.rango-personal .btn { flex: 0 0 auto; min-height: 44px; }
+@media (max-width: 480px) {
+  .rango-personal .campo { flex: 1 0 100%; }
+  .rango-personal .btn   { flex: 1 0 100%; }
 }
 
 /* Contador − 2 + para la cantidad de cada línea */

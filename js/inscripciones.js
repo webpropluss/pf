@@ -7,6 +7,7 @@ let insDetalles = [];   // líneas de la nueva inscripción
 let insCatalogo = { disciplinas: [], horarios: [] };
 let insAlumnos = [];    // lista de alumnos, para el buscador
 let pagoEditadoAMano = false;   // si tocan "Paga ahora", deja de seguir al total
+let fechaCobroEditada = false;  // si tocan la fecha del cobro, deja de seguir al inicio
 
 async function cargarInscripciones(contenido) {
   const [inscripciones, pagos] = await Promise.all([
@@ -71,6 +72,7 @@ async function nuevaInscripcion() {
   insAlumnos = alumnos.data || [];
   insDetalles = [];
   pagoEditadoAMano = false;
+  fechaCobroEditada = false;
 
   const hoy = util.hoy();
   const fin = new Date(); fin.setMonth(fin.getMonth() + 1);
@@ -88,7 +90,8 @@ async function nuevaInscripcion() {
       <input type="hidden" name="alumno_id" id="insAlumnoId" value="">
     </div>
     <div class="fila">
-      <div class="campo"><label>Inicio</label><input type="date" name="fecha_inicio" required value="${hoy}"></div>
+      <div class="campo"><label>Inicio</label><input type="date" name="fecha_inicio" required value="${hoy}"
+             onchange="sincronizarFechaCobro()"></div>
       <div class="campo"><label>Fin (vence)</label><input type="date" name="fecha_fin" required value="${fin.toISOString().slice(0,10)}"></div>
     </div>
 
@@ -127,6 +130,12 @@ async function nuevaInscripcion() {
       <span class="subtexto">Viene con el total puesto. Si paga menos, la diferencia
         queda como saldo pendiente en Pagos. Si pone 0, no se cobra nada ahora.</span></div>
 
+    <div class="campo"><label>Fecha del cobro</label>
+      <input type="date" name="fecha_cobro" value="${hoy}" max="${hoy}"
+             oninput="fechaCobroEditada = true">
+      <span class="subtexto">Es el día en que entró el dinero, y es el que usa el
+        Dashboard. Sigue sola a la fecha de inicio: cámbiala solo si cobraste otro día.</span></div>
+
     <div class="total-grande" id="totalIns">Bs. 0.00 <small>total</small></div>
   `, async (form) => {
     // Si escribió un nombre que deja una sola coincidencia pero no llegó
@@ -161,6 +170,7 @@ async function nuevaInscripcion() {
       p_metodo_pago: form.metodo_pago.value,
       p_usuario_nombre: perfilActual?.nombre || '',
       p_pago_inicial: Number(form.pago_inicial?.value || 0),
+      p_fecha_pago: form.fecha_cobro?.value || null,
       p_detalles: insDetalles.map(d => ({
         disciplina_id: d.disciplina_id, horario_id: d.horario_id,
         precio_mensual: d.precio,                        // lo que realmente se le cobra
@@ -176,6 +186,21 @@ async function nuevaInscripcion() {
   }, 'Guardar inscripción');
   buscarAlumnoIns();
   pintarDetallesIns();
+}
+
+/**
+ * La fecha del cobro sigue a la de inicio mientras no la toquen a mano.
+ * Así, al cargar una inscripción que empezó hace días, el dinero queda
+ * anotado en el día que corresponde sin tener que acordarse.
+ */
+function sincronizarFechaCobro() {
+  if (fechaCobroEditada) return;
+  const ini = document.querySelector('#formModal [name="fecha_inicio"]')?.value;
+  const cob = document.querySelector('#formModal [name="fecha_cobro"]');
+  if (!ini || !cob) return;
+  // Si la mensualidad arranca más adelante, el dinero igual entró hoy:
+  // no tendría sentido anotar un cobro en el futuro.
+  cob.value = ini > util.hoy() ? util.hoy() : ini;
 }
 
 // ---------------------- BUSCADOR DE ALUMNO ----------------------

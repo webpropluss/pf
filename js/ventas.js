@@ -52,10 +52,11 @@ async function cargarVentas(contenido) {
               <tr style="${v.anulada ? 'opacity:.5' : ''}">
                 <td>${v.numero}</td>
                 <td>${new Date(v.fecha).toLocaleString('es-BO', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })}</td>
-                <td>${(v.venta_detalles || []).map(d =>
-                    `${d.cantidad}× ${d.nombre_producto}` +
-                    (d.descripcion_producto ? ` <span class="subtexto">(${d.descripcion_producto})</span>` : '')
-                  ).join('<br>') || '—'}</td>
+                <td><div class="lineas">${(v.venta_detalles || []).map(d =>
+                    `<span>${d.cantidad}× ${d.nombre_producto}` +
+                    (d.descripcion_producto ? ` <span class="subtexto">(${d.descripcion_producto})</span>` : '') +
+                    '</span>'
+                  ).join('') || '—'}</div></td>
                 <td><strong>${util.bs(v.total)}</strong>${v.anulada ? ' <span class="pill pill-rojo">Anulada</span>' : ''}</td>
                 ${verGanancia ? `<td>${util.bs(v.ganancia)}</td>` : ''}
                 <td>${v.metodo_pago}</td>
@@ -104,7 +105,7 @@ async function nuevaVenta() {
   `, async (form) => {
     if (!ventaLineas.length) throw new Error('Agrega al menos un producto a la venta.');
 
-    const id = verificar(await db.rpc('crear_venta', {
+    verificar(await db.rpc('crear_venta', {
       p_detalles: ventaLineas.map(l => ({ producto_id: l.id, cantidad: l.cantidad })),
       p_descuento: Number(form.descuento.value || 0),
       p_metodo_pago: form.metodo_pago.value,
@@ -113,7 +114,9 @@ async function nuevaVenta() {
 
     const total = ventaLineas.reduce((s, l) => s + l.precio * l.cantidad, 0)
                   - Number(form.descuento.value || 0);
-    notificar(`Venta N° ${id} registrada · ${util.bs(Math.max(total, 0))} cobrados.`);
+    // Antes aquí se mostraba el id interno como si fuera el N° de la venta,
+    // y no coincidía con el que sale en la lista. Mejor no dar un número falso.
+    notificar(`Venta registrada · ${util.bs(Math.max(total, 0))} cobrados.`);
     abrirModulo('ventas');
   }, '🛒 Vender');
 
