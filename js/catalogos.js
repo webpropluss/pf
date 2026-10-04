@@ -52,8 +52,7 @@ async function dialogoDisciplina(id) {
     };
     if (id) verificar(await db.from('disciplinas').update(datos).eq('id', id));
     else {
-      datos.codigo = await siguienteCodigo('disciplinas', 'DIS');
-      verificar(await db.from('disciplinas').insert(datos));
+      await insertarConCodigo('disciplinas', 'DIS', datos);
     }
     notificar('Disciplina guardada.');
     abrirModulo('disciplinas');
@@ -143,8 +142,7 @@ async function dialogoInstructor(id) {
     };
     if (id) verificar(await db.from('instructores').update(datos).eq('id', id));
     else {
-      datos.codigo = await siguienteCodigo('instructores', 'INS');
-      verificar(await db.from('instructores').insert(datos));
+      await insertarConCodigo('instructores', 'INS', datos);
     }
     notificar('Instructor guardado.');
     abrirModulo('instructores');

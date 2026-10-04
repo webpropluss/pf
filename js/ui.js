@@ -82,8 +82,40 @@ function verificar(respuesta) {
 
 /** Genera el siguiente código correlativo, ej. ALU-008. */
 async function siguienteCodigo(tabla, prefijo) {
-  const { count } = await db.from(tabla).select('id', { count: 'exact', head: true });
-  return `${prefijo}-${String((count || 0) + 1).padStart(3, '0')}`;
+  // Lo calcula la base de datos mirando el número MÁS ALTO que ya existe.
+  // (Antes se contaban las filas, y al borrar algo la cuenta dejaba de
+  //  coincidir con los códigos reales y proponía uno repetido.)
+  const r = await db.rpc('siguiente_codigo', { p_tabla: tabla, p_prefijo: prefijo });
+  if (!r.error && r.data) return r.data;
+
+  // Respaldo, por si todavía no se ejecutó el paso 18 en Supabase:
+  // se trae solo los códigos de ese prefijo y se busca el mayor aquí.
+  const { data } = await db.from(tabla).select('codigo').like('codigo', prefijo + '-%');
+  const mayor = (data || []).reduce((m, f) => {
+    const n = parseInt(String(f.codigo).replace(/^\D+-/, ''), 10);
+    return Number.isFinite(n) && n > m ? n : m;
+  }, 0);
+  return `${prefijo}-${String(mayor + 1).padStart(3, '0')}`;
+}
+
+/**
+ * Inserta una fila generándole el código, y si justo otra persona
+ * acaba de usar ese mismo código, lo vuelve a intentar con el siguiente.
+ * Sin esto, dos cajas guardando a la vez chocarían.
+ *
+ * @returns la fila insertada (con su id)
+ */
+async function insertarConCodigo(tabla, prefijo, datos, intentos = 4) {
+  for (let i = 1; i <= intentos; i++) {
+    const fila = { ...datos, codigo: await siguienteCodigo(tabla, prefijo) };
+    const r = await db.from(tabla).insert(fila).select().single();
+    if (!r.error) return r.data;
+
+    // 23505 = código repetido. Cualquier otro error sí es un problema real.
+    const repetido = r.error.code === '23505' ||
+                     /duplicate key|llave duplicada/i.test(r.error.message || '');
+    if (!repetido || i === intentos) throw new Error(r.error.message);
+  }
 }
 
 // ============================================================

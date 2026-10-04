@@ -16,10 +16,10 @@ async function cargarPagos(contenido) {
     .filter(i => i.saldo > 0);
 
   const hoy = util.hoy();
-  const ingresosDia = (pagos.data || []).filter(p => String(p.fecha).slice(0, 10) === hoy)
+  const ingresosDia = (pagos.data || []).filter(p => util.dia(p.fecha) === hoy)
     .reduce((s, p) => s + Number(p.monto), 0);
   const mes = hoy.slice(0, 7);
-  const ingresosMes = (pagos.data || []).filter(p => String(p.fecha).slice(0, 7) === mes)
+  const ingresosMes = (pagos.data || []).filter(p => util.mes(p.fecha) === mes)
     .reduce((s, p) => s + Number(p.monto), 0);
 
   const esAdmin = puedeAccion('eliminarPago');

@@ -5,11 +5,8 @@
 let perfilActual = null;
 
 /** Utilidades compartidas por todos los módulos */
-const util = {
-  bs: (n) => 'Bs. ' + Number(n || 0).toFixed(2),
-  fecha: (f) => f ? new Date(f + (String(f).length === 10 ? 'T00:00:00' : '')).toLocaleDateString('es-BO') : '',
-  hoy: () => new Date().toISOString().slice(0, 10),
-};
+// `util` (formatos y fechas) vive ahora en js/util.js
+
 
 /** Módulos registrados. Cada etapa agrega los suyos aquí. */
 const modulos = {

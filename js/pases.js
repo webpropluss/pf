@@ -18,7 +18,7 @@ async function cargarPases(contenido) {
   const precioSugerido = Number(config.data?.valor || 25);
 
   const deHoy  = lista.filter(p => p.fecha === hoy);
-  const delMes = lista.filter(p => String(p.fecha).slice(0, 7) === hoy.slice(0, 7));
+  const delMes = lista.filter(p => util.mes(p.fecha) === hoy.slice(0, 7));
   const totalHoy = deHoy.reduce((s, p) => s + Number(p.monto), 0);
   const totalMes = delMes.reduce((s, p) => s + Number(p.monto), 0);
 
@@ -120,10 +120,7 @@ async function dialogoPase(precioSugerido) {
       const telefono = validarTelefono(form.telefono_visitante.value, false);
 
       // Código VIS- para distinguirlos de los alumnos con mensualidad
-      const nuevo = verificar(await db.from('alumnos').insert({
-        codigo: await siguienteCodigo('alumnos', 'VIS'),
-        nombre, telefono,
-      }).select('id').single());
+      const nuevo = await insertarConCodigo('alumnos', 'VIS', { nombre, telefono });
       alumnoId = nuevo.id;
     }
 

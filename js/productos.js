@@ -199,9 +199,8 @@ async function dialogoProducto(id) {
     if (id) {
       verificar(await db.from('productos').update(datos).eq('id', id));
     } else {
-      datos.codigo = await siguienteCodigo('productos', 'PRO');
       datos.stock = Number(form.stock.value || 0);
-      verificar(await db.from('productos').insert(datos));
+      await insertarConCodigo('productos', 'PRO', datos);
     }
     notificar(id ? 'Producto actualizado.' : 'Producto agregado.');
     abrirModulo('productos');

@@ -115,8 +115,7 @@ async function dialogoAlumno(id) {
     if (id) {
       verificar(await db.from('alumnos').update(datos).eq('id', id));
     } else {
-      datos.codigo = await siguienteCodigo('alumnos', 'ALU');
-      verificar(await db.from('alumnos').insert(datos));
+      await insertarConCodigo('alumnos', 'ALU', datos);
     }
     notificar(id ? 'Alumno actualizado.' : 'Alumno registrado.');
     abrirModulo('alumnos');

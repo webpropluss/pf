@@ -40,7 +40,7 @@ async function cargarInscripciones(contenido) {
             return `
               <tr style="${i.anulada ? 'opacity:.5' : ''}">
                 <td>${i.numero}</td>
-                <td>${util.fecha(String(i.fecha).slice(0, 10))}</td>
+                <td>${util.fecha(util.dia(i.fecha))}</td>
                 <td><strong>${i.alumnos?.nombre || '—'}</strong></td>
                 <td>${util.fecha(i.fecha_inicio)} → ${util.fecha(i.fecha_fin)}</td>
                 <td>${util.bs(i.total)}</td>
@@ -92,7 +92,7 @@ async function nuevaInscripcion() {
     <div class="fila">
       <div class="campo"><label>Inicio</label><input type="date" name="fecha_inicio" required value="${hoy}"
              onchange="sincronizarFechaCobro()"></div>
-      <div class="campo"><label>Fin (vence)</label><input type="date" name="fecha_fin" required value="${fin.toISOString().slice(0,10)}"></div>
+      <div class="campo"><label>Fin (vence)</label><input type="date" name="fecha_fin" required value="${util.diaLocal(fin)}"></div>
     </div>
 
     <h3 style="font-size:18px;margin:6px 0 10px">Disciplinas y horarios</h3>

@@ -16,7 +16,7 @@ function rangoDelModo(modo, desde, hasta) {
   const hoy = util.hoy();
   const menos = (n) => {
     const f = new Date(hoy + 'T12:00:00'); f.setDate(f.getDate() - n);
-    return f.toISOString().slice(0, 10);
+    return util.diaLocal(f);
   };
   switch (modo) {
     case 'hoy':    return { desde: hoy, hasta: hoy };
@@ -75,8 +75,8 @@ async function cargarDashboard(contenido) {
   // Si es la primera vez, el período arranca en "hoy"
   if (!dashPeriodo.desde) dashPeriodo = { modo: 'hoy', ...rangoDelModo('hoy') };
   const P = dashPeriodo;
-  const desdeTS = P.desde + 'T00:00:00';
-  const hastaTS = P.hasta + 'T23:59:59';
+  const desdeTS = util.desdeISO(P.desde);
+  const hastaTS = util.hastaISO(P.hasta);
 
   // Configuración del aviso (días de anticipación y texto del mensaje).
   // Se trae AQUÍ para que al tocar el botón no haya ninguna espera:
@@ -95,7 +95,7 @@ async function cargarDashboard(contenido) {
   let graDesde = P.desde;
   if (grano === 'dia' && nDias < 7) {   // "Hoy" solo sería una barra
     const f = new Date(P.hasta + 'T12:00:00'); f.setDate(f.getDate() - 6);
-    graDesde = f.toISOString().slice(0, 10);
+    graDesde = util.diaLocal(f);
   }
 
   // Consultas en paralelo
@@ -115,7 +115,7 @@ async function cargarDashboard(contenido) {
       db.from('promociones').select('costo, valor_venta, promocion_detalles(cantidad)')
         .eq('anulada', false).gte('fecha', desdeTS).lte('fecha', hastaTS),
       db.from('pagos').select('monto, fecha')
-        .gte('fecha', graDesde + 'T00:00:00').lte('fecha', hastaTS),
+        .gte('fecha', util.desdeISO(graDesde)).lte('fecha', hastaTS),
     ]);
 
   const ingresos = (pagos.data || []).reduce((s, p) => s + Number(p.monto), 0);
@@ -161,7 +161,7 @@ async function cargarDashboard(contenido) {
     if (grano === 'dia') return iso.slice(0, 10);
     const f = new Date(iso.slice(0, 10) + 'T12:00:00');       // semana: va al lunes
     f.setDate(f.getDate() - ((f.getDay() + 6) % 7));
-    return f.toISOString().slice(0, 10);
+    return util.diaLocal(f);
   };
 
   const cubos = [];
@@ -169,20 +169,20 @@ async function cargarDashboard(contenido) {
   if (grano === 'mes') {
     const ini = new Date(graDesde + 'T12:00:00'); ini.setDate(1);
     for (let f = new Date(ini); f <= fin; f.setMonth(f.getMonth() + 1)) {
-      cubos.push({ clave: f.toISOString().slice(0, 7), monto: 0,
+      cubos.push({ clave: util.diaLocal(f).slice(0, 7), monto: 0,
         etiqueta: f.toLocaleDateString('es-BO', { month: 'short' }) });
     }
   } else {
     const paso = grano === 'semana' ? 7 : 1;
     const ini = new Date(cubeta(graDesde) + 'T12:00:00');
     for (let f = new Date(ini); f <= fin; f.setDate(f.getDate() + paso)) {
-      cubos.push({ clave: f.toISOString().slice(0, 10), monto: 0,
+      cubos.push({ clave: util.diaLocal(f), monto: 0,
         etiqueta: f.toLocaleDateString('es-BO', { day: 'numeric', month: 'numeric' }) });
     }
   }
 
   (pagosGrafico.data || []).forEach(p => {
-    const c = cubos.find(x => x.clave === cubeta(String(p.fecha)));
+    const c = cubos.find(x => x.clave === cubeta(util.dia(p.fecha)));
     if (c) c.monto += Number(p.monto);
   });
   const max = Math.max(...cubos.map(c => c.monto), 1);

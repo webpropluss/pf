@@ -15,11 +15,11 @@ async function cargarVentas(contenido) {
     .select('*, venta_detalles(nombre_producto, descripcion_producto, cantidad, precio_unitario)')
     .order('id', { ascending: false }).limit(150));
 
-  const deHoy = ventas.filter(v => !v.anulada && String(v.fecha).slice(0, 10) === hoy);
+  const deHoy = ventas.filter(v => !v.anulada && util.dia(v.fecha) === hoy);
   const cobradoHoy  = deHoy.reduce((s, v) => s + Number(v.total), 0);
   const gananciaHoy = deHoy.reduce((s, v) => s + Number(v.ganancia), 0);
   const mes = hoy.slice(0, 7);
-  const cobradoMes = ventas.filter(v => !v.anulada && String(v.fecha).slice(0, 7) === mes)
+  const cobradoMes = ventas.filter(v => !v.anulada && util.mes(v.fecha) === mes)
     .reduce((s, v) => s + Number(v.total), 0);
 
   contenido.innerHTML = `

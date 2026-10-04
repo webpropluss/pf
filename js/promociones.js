@@ -23,8 +23,8 @@ async function cargarPromociones(contenido) {
     .order('id', { ascending: false }).limit(150));
 
   const vigentes  = promos.filter(p => !p.anulada);
-  const deHoy     = vigentes.filter(p => String(p.fecha).slice(0, 10) === hoy);
-  const delMes    = vigentes.filter(p => String(p.fecha).slice(0, 7) === mes);
+  const deHoy     = vigentes.filter(p => util.dia(p.fecha) === hoy);
+  const delMes    = vigentes.filter(p => util.mes(p.fecha) === mes);
   const gastoHoy  = deHoy.reduce((s, p) => s + Number(p.costo), 0);
   const gastoMes  = delMes.reduce((s, p) => s + Number(p.costo), 0);
   const valorMes  = delMes.reduce((s, p) => s + Number(p.valor_venta), 0);
