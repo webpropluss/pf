@@ -100,9 +100,15 @@ async function cargarConfiguracion(contenido) {
         </div>
         <div class="campo"><label>Dirección</label><input name="direccion" value="${c.direccion || ''}"></div>
 
-        <div class="campo"><label>Precio sugerido del pase del día (Bs.)</label>
-          <input type="number" name="precio_pase_dia" min="0" step="0.01" value="${c.precio_pase_dia || 25}">
-          <span class="subtexto">Es solo el valor que viene puesto por defecto; se puede cambiar en cada pase.</span></div>
+        <div class="fila">
+          <div class="campo"><label>Pase del día · monto 1 (Bs.)</label>
+            <input type="number" name="precio_pase_dia" min="0" step="0.01" value="${c.precio_pase_dia || 10}"></div>
+          <div class="campo"><label>Pase del día · monto 2 (Bs.)</label>
+            <input type="number" name="precio_pase_dia_2" min="0" step="0.01" value="${c.precio_pase_dia_2 || 15}"></div>
+        </div>
+        <span class="subtexto" style="display:block;margin:-8px 0 14px">Son los dos botones que
+          aparecen al cobrar un pase. Si algún día cobras otra cosa, en el pase hay un botón
+          <strong>Otro</strong> para escribir el monto.</span>
 
         <h3 style="margin:18px 0 12px">📲 Aviso automático de WhatsApp</h3>
         <div class="campo"><label>Enviar el aviso cuántos días antes del vencimiento</label>
@@ -122,7 +128,8 @@ async function cargarConfiguracion(contenido) {
   document.getElementById('formConfig').addEventListener('submit', async (e) => {
     e.preventDefault();
     const f = e.target;
-    const datos = ['nombre_gimnasio','telefono','direccion','precio_pase_dia','dias_aviso_whatsapp','mensaje_whatsapp']
+    const datos = ['nombre_gimnasio','telefono','direccion','precio_pase_dia','precio_pase_dia_2',
+                   'dias_aviso_whatsapp','mensaje_whatsapp']
       .map(clave => ({ clave, valor: f[clave].value }));
     const r = await db.from('config').upsert(datos);
     if (r.error) { notificar(r.error.message, true); return; }

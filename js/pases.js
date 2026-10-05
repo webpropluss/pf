@@ -9,13 +9,23 @@ async function cargarPases(contenido) {
 
   const [pases, config] = await Promise.all([
     db.from('pases_dia')
-      .select('*, alumnos(nombre, telefono, foto_url), horarios(dias, hora_inicio, disciplinas(nombre))')
+      // alumnos y horarios siguen aquí solo para los pases viejos,
+      // que sí tenían visitante y clase. Los nuevos usan disciplina.
+      .select('*, disciplinas(nombre), alumnos(nombre), horarios(dias, hora_inicio, disciplinas(nombre))')
       .order('fecha', { ascending: false }).order('id', { ascending: false }).limit(200),
-    db.from('config').select('valor').eq('clave', 'precio_pase_dia').single(),
+    db.from('config').select('clave, valor').in('clave', ['precio_pase_dia', 'precio_pase_dia_2']),
   ]);
 
   const lista = pases.data || [];
-  const precioSugerido = Number(config.data?.valor || 25);
+  const C = {};
+  (config.data || []).forEach(f => C[f.clave] = f.valor);
+  const monto1 = Number(C.precio_pase_dia || 10);
+  const monto2 = Number(C.precio_pase_dia_2 || 15);
+
+  /** Qué clase muestra cada pase (los viejos traían el horario). */
+  const claseDe = (p) => p.disciplinas?.nombre
+    || p.horarios?.disciplinas?.nombre
+    || '<span class="subtexto">Libre</span>';
 
   const deHoy  = lista.filter(p => p.fecha === hoy);
   const delMes = lista.filter(p => util.mes(p.fecha) === hoy.slice(0, 7));
@@ -26,7 +36,7 @@ async function cargarPases(contenido) {
     <header class="cabecera"><h2>Pases del día</h2></header>
 
     <div class="toolbar">
-      <button class="btn btn-rojo" onclick="dialogoPase(${precioSugerido})">＋ Nuevo pase del día</button>
+      <button class="btn btn-rojo" onclick="dialogoPase(${monto1}, ${monto2})">＋ Nuevo pase del día</button>
     </div>
 
     <div class="tarjetas">
@@ -40,17 +50,13 @@ async function cargarPases(contenido) {
       <h3>Últimos pases</h3>
       ${lista.length ? `
         <table>
-          <thead><tr><th></th><th>Persona</th><th>Fecha</th><th>Clase</th><th>Monto</th><th>Pago</th><th>Registró</th><th></th></tr></thead>
+          <thead><tr><th>Fecha</th><th>Disciplina</th><th>Monto</th><th>Pago</th><th>Registró</th><th></th></tr></thead>
           <tbody>
             ${lista.map(p => `
               <tr>
-                <td>${avatarHtml(p.alumnos?.nombre || '?', p.alumnos?.foto_url)}</td>
-                <td><strong>${p.alumnos?.nombre || '—'}</strong>
-                    <div class="subtexto">${telefonoMostrar(p.alumnos?.telefono)}</div></td>
                 <td>${util.fecha(p.fecha)}${p.fecha === hoy ? ' <span class="pill pill-verde">Hoy</span>' : ''}</td>
-                <td>${p.horarios
-                      ? `${p.horarios.disciplinas?.nombre || ''} · ${p.horarios.dias} ${p.horarios.hora_inicio}`
-                      : '<span class="subtexto">Libre</span>'}</td>
+                <td><strong>${claseDe(p)}</strong>
+                    ${p.alumnos?.nombre ? `<div class="subtexto">${p.alumnos.nombre}</div>` : ''}</td>
                 <td><strong>${util.bs(p.monto)}</strong></td>
                 <td>${p.metodo_pago}</td>
                 <td class="subtexto">${p.usuario_nombre || '—'}</td>
@@ -64,87 +70,85 @@ async function cargarPases(contenido) {
     </div>`;
 }
 
-/** Formulario del pase: alumno existente o visitante nuevo. */
-async function dialogoPase(precioSugerido) {
-  const [alumnos, horarios] = await Promise.all([
-    db.from('alumnos').select('id, nombre').eq('activo', true).order('nombre'),
-    db.from('horarios').select('id, dias, hora_inicio, disciplinas(nombre)').eq('activo', true).order('id'),
-  ]);
+/**
+ * Formulario del pase: lo mínimo para cobrar rápido en la puerta.
+ * Fecha, disciplina, monto y forma de pago. No se pide el nombre:
+ * quien viene un solo día no se registra como alumno.
+ */
+async function dialogoPase(monto1, monto2) {
+  const disciplinas = verificar(await db.from('disciplinas')
+    .select('id, nombre').eq('activo', true).order('nombre'));
 
   abrirModal('Nuevo pase del día', `
-    <div class="campo"><label>¿Quién entrena hoy?</label>
-      <select name="alumno_id" onchange="alternarVisitante(this.value)">
-        <option value="nuevo">＋ Visitante nuevo (escribir su nombre)</option>
-        ${(alumnos.data || []).map(a => `<option value="${a.id}">${a.nombre}</option>`).join('')}
+    <div class="campo"><label>Fecha</label>
+      <input type="date" name="fecha" required value="${util.hoy()}" max="${util.hoy()}"></div>
+
+    <div class="campo"><label>Disciplina</label>
+      <select name="disciplina_id" required>
+        <option value="">— Elegir disciplina —</option>
+        ${disciplinas.map(d => `<option value="${d.id}">${d.nombre}</option>`).join('')}
       </select></div>
 
-    <div id="camposVisitante">
-      <div class="campo"><label>Nombre del visitante</label>
-        <input name="nombre_visitante" placeholder="Nombre y apellido"></div>
-      <div class="campo"><label>Celular <span class="subtexto">(opcional)</span></label>
-        ${campoTelefono('telefono_visitante', '', false)}
-        <span class="subtexto">Solo si quieres invitarlo después a sacar mensualidad.
-          Para un pase de un día no hace falta.</span></div>
-    </div>
+    <div class="campo"><label>Monto</label>
+      <div class="opciones" id="opcionesMonto">
+        <button type="button" class="opcion activa" data-monto="${monto1}"
+                onclick="elegirMonto(${monto1})">Bs. ${monto1}</button>
+        <button type="button" class="opcion" data-monto="${monto2}"
+                onclick="elegirMonto(${monto2})">Bs. ${monto2}</button>
+        <button type="button" class="opcion" data-monto="otro"
+                onclick="elegirMonto('otro')">Otro</button>
+      </div>
+      <input type="number" name="monto" min="0" step="0.01" required
+             value="${monto1}" hidden></div>
 
-    <div class="fila">
-      <div class="campo"><label>Fecha</label>
-        <input type="date" name="fecha" required value="${util.hoy()}"></div>
-      <div class="campo"><label>Monto Bs.</label>
-        <input type="number" name="monto" min="0" step="0.01" required value="${precioSugerido}"></div>
-    </div>
-
-    <div class="campo"><label>Clase / horario <span class="subtexto">(opcional)</span></label>
-      <select name="horario_id">
-        <option value="">— Entrada libre, sin clase fija —</option>
-        ${(horarios.data || []).map(h =>
-          `<option value="${h.id}">${h.disciplinas?.nombre || ''} · ${h.dias} ${h.hora_inicio}</option>`).join('')}
-      </select></div>
-
-    <div class="fila">
-      <div class="campo"><label>Método de pago</label>
-        <select name="metodo_pago">
-          <option>Efectivo</option><option>QR</option><option>Tarjeta</option><option>Transferencia</option>
-        </select></div>
-      <div class="campo"><label>Observación <span class="subtexto">(opcional)</span></label>
-        <input name="observacion" placeholder="Ej. vino con un amigo"></div>
-    </div>
+    <div class="campo"><label>Pago</label>
+      <div class="opciones" id="opcionesPago">
+        <button type="button" class="opcion activa" onclick="elegirPago('Efectivo')">Efectivo</button>
+        <button type="button" class="opcion" onclick="elegirPago('QR')">QR</button>
+      </div>
+      <input type="hidden" name="metodo_pago" value="Efectivo"></div>
   `, async (form) => {
-    let alumnoId = form.alumno_id.value;
-
-    // Visitante nuevo: basta con el nombre. El teléfono es opcional
-    // porque alguien que viene un solo día no necesita avisos.
-    if (alumnoId === 'nuevo') {
-      const nombre = form.nombre_visitante.value.trim();
-      if (!nombre) throw new Error('Escribe el nombre del visitante.');
-      const telefono = validarTelefono(form.telefono_visitante.value, false);
-
-      // Código VIS- para distinguirlos de los alumnos con mensualidad
-      const nuevo = await insertarConCodigo('alumnos', 'VIS', { nombre, telefono });
-      alumnoId = nuevo.id;
-    }
+    if (!form.disciplina_id.value) throw new Error('Elige la disciplina del pase.');
+    const monto = Number(form.monto.value);
+    if (!Number.isFinite(monto) || monto < 0) throw new Error('El monto no es válido.');
 
     const id = verificar(await db.rpc('crear_pase_dia', {
-      p_alumno_id: Number(alumnoId),
       p_fecha: form.fecha.value,
-      p_horario_id: form.horario_id.value ? Number(form.horario_id.value) : null,
-      p_monto: Number(form.monto.value),
+      p_disciplina_id: Number(form.disciplina_id.value),
+      p_monto: monto,
       p_metodo_pago: form.metodo_pago.value,
-      p_observacion: form.observacion.value.trim(),
       p_usuario_nombre: perfilActual?.nombre || '',
     }));
 
-    notificar(`Pase del día registrado (PD-${id}).`);
+    notificar(`Pase registrado · ${util.bs(monto)} cobrados.`);
     abrirModulo('pases');
   }, 'Registrar pase');
-
-  alternarVisitante('nuevo');
 }
 
-/** Muestra u oculta los campos del visitante según la elección. */
-function alternarVisitante(valor) {
-  const caja = document.getElementById('camposVisitante');
-  if (caja) caja.style.display = (valor === 'nuevo') ? 'block' : 'none';
+/** Botones de monto. "Otro" destapa el campo para escribirlo. */
+function elegirMonto(valor) {
+  const campo = document.querySelector('#formModal [name="monto"]');
+  if (!campo) return;
+
+  document.querySelectorAll('#opcionesMonto .opcion').forEach(b =>
+    b.classList.toggle('activa', b.dataset.monto === String(valor)));
+
+  if (valor === 'otro') {
+    campo.hidden = false;
+    campo.value = '';
+    campo.focus();
+  } else {
+    campo.hidden = true;
+    campo.value = valor;
+  }
+}
+
+/** Botones de forma de pago. */
+function elegirPago(metodo) {
+  const campo = document.querySelector('#formModal [name="metodo_pago"]');
+  if (campo) campo.value = metodo;
+  document.querySelectorAll('#opcionesPago .opcion').forEach(b =>
+    b.classList.toggle('activa', b.textContent.trim() === metodo));
 }
 
 async function eliminarPase(id) {
