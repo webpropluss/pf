@@ -186,7 +186,10 @@ async function cargarDashboard(contenido) {
     if (c) c.monto += Number(p.monto);
   });
   const max = Math.max(...cubos.map(c => c.monto), 1);
-  const compacto = cubos.length > 10;
+  // Con muchas barras no cabe el importe encima de cada una. En un
+  // teléfono deja de caber muchísimo antes: a 320 px, con más de 4
+  // barras, un "Bs. 150.00" ensancha el gráfico y rompe la pantalla.
+  const compacto = cubos.length > 10 || (window.innerWidth < 560 && cubos.length > 4);
 
   const chip = (modo, texto) =>
     `<button type="button" class="chip-periodo ${P.modo === modo ? 'activo' : ''}"

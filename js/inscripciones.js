@@ -11,7 +11,9 @@ let fechaCobroEditada = false;  // si tocan la fecha del cobro, deja de seguir a
 
 async function cargarInscripciones(contenido) {
   const [inscripciones, pagos] = await Promise.all([
-    db.from('inscripciones').select('*, alumnos(nombre)').order('id', { ascending: false }).limit(200),
+    db.from('inscripciones')
+      .select('*, alumnos(nombre), inscripcion_detalles(disciplina_id, disciplinas(nombre))')
+      .order('id', { ascending: false }).limit(200),
     db.from('pagos').select('inscripcion_id, monto'),
   ]);
   const pagadoPor = {};
@@ -20,16 +22,19 @@ async function cargarInscripciones(contenido) {
   const puedeAnular   = puedeAccion('anular');
   const puedeEliminar = puedeAccion('eliminar');
 
-  contenido.innerHTML = `
-    <header class="cabecera"><h2>Inscripciones</h2></header>
-    <div class="toolbar">
-      <button class="btn btn-rojo" onclick="nuevaInscripcion()">＋ Nueva inscripción</button>
-    </div>
-    <div class="panel">
-      <table>
-        <thead><tr><th>N°</th><th>Fecha</th><th>Alumno</th><th>Vigencia</th><th>Total</th><th>Pagado</th><th>Saldo</th><th>Estado</th><th></th></tr></thead>
-        <tbody>
-          ${(inscripciones.data || []).map(i => {
+  const lista = inscripciones.data || [];
+
+  /** Disciplinas de una inscripción, sin repetir si lleva dos horarios de la misma. */
+  const disciplinasDe = (i) => {
+    const vistas = new Map();
+    (i.inscripcion_detalles || []).forEach(d => {
+      if (d.disciplina_id != null && !vistas.has(d.disciplina_id))
+        vistas.set(d.disciplina_id, d.disciplinas?.nombre || '—');
+    });
+    return [...vistas.entries()];   // [[id, nombre], ...]
+  };
+
+  const filas = (datos) => datos.map(i => {
             const pagado = pagadoPor[i.id] || 0;
             const saldo = Math.max(Number(i.total) - pagado, 0);
             const estado = i.anulada
@@ -42,6 +47,9 @@ async function cargarInscripciones(contenido) {
                 <td>${i.numero}</td>
                 <td>${util.fecha(util.dia(i.fecha))}</td>
                 <td><strong>${i.alumnos?.nombre || '—'}</strong></td>
+                <td><div class="chips-dis">${
+                  disciplinasDe(i).map(([id, n]) => chipDisciplina(n, id)).join('') ||
+                  '<span class="subtexto">—</span>'}</div></td>
                 <td>${util.fecha(i.fecha_inicio)} → ${util.fecha(i.fecha_fin)}</td>
                 <td>${util.bs(i.total)}</td>
                 <td>${util.bs(pagado)}</td>
@@ -54,10 +62,45 @@ async function cargarInscripciones(contenido) {
                     ? `<button title="Eliminar definitivamente" onclick="eliminarInscripcion(${i.id}, ${i.numero})">🗑️</button>` : ''}
                 </td>
               </tr>`;
-          }).join('')}
-        </tbody>
+          }).join('');
+
+  contenido.innerHTML = `
+    <header class="cabecera"><h2>Inscripciones</h2></header>
+    <div class="toolbar">
+      <input type="search" id="buscarIns" placeholder="Buscar por nombre, N° o disciplina…">
+      <button class="btn btn-rojo" onclick="nuevaInscripcion()">＋ Nueva inscripción</button>
+    </div>
+    <div class="panel">
+      <table>
+        <thead><tr><th>N°</th><th>Fecha</th><th>Alumno</th><th>Disciplinas</th><th>Vigencia</th>
+                   <th>Total</th><th>Pagado</th><th>Saldo</th><th>Estado</th><th></th></tr></thead>
+        <tbody id="tbodyIns">${filas(lista)}</tbody>
       </table>
+      <p class="subtexto" id="contadorIns" style="margin-top:12px"></p>
     </div>`;
+
+  const contador = (n) => {
+    const el = document.getElementById('contadorIns');
+    // "inscripción" pierde el acento en plural: inscripciones, no inscripciónes
+    if (el) el.textContent = n === lista.length
+      ? `${lista.length} ${lista.length === 1 ? 'inscripción' : 'inscripciones'}`
+      : `Mostrando ${n} de ${lista.length}`;
+  };
+  contador(lista.length);
+
+  const repintar = () => {
+    const q = document.getElementById('buscarIns').value.trim().toLowerCase();
+    const hallados = !q ? lista : lista.filter(i =>
+      ((i.alumnos?.nombre || '') + ' ' + i.numero + ' ' +
+       disciplinasDe(i).map(([, n]) => n).join(' ')).toLowerCase().includes(q));
+    document.getElementById('tbodyIns').innerHTML = hallados.length
+      ? filas(hallados)
+      : `<tr><td colspan="10" class="cargando">No hay inscripciones que digan “${q}”.</td></tr>`;
+    contador(hallados.length);
+    // Las etiquetas de las tarjetas en el teléfono las repone solo el
+    // observador de ui.js, que vigila todo el documento.
+  };
+  document.getElementById('buscarIns').addEventListener('input', repintar);
 }
 
 // ---------------------- NUEVA INSCRIPCIÓN ----------------------

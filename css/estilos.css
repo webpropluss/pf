@@ -185,6 +185,14 @@ tr:hover td { background: var(--negro-suave); }
 .grafico .barra .dia { font-size: 12px; color: var(--texto-suave); }
 .grafico .barra .monto { font-size: 12px; font-weight: 600; }
 
+/* Red de seguridad: el importe de encima NUNCA debe poder ensanchar la
+   barra. Sin esto, un "Bs. 150.00" en una barra de 37 px estira el
+   gráfico y desborda la pantalla del teléfono. */
+.grafico .barra { min-width: 0; }
+.grafico .barra .monto {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
 /* Muchas barras: se apretan y se quita el importe de encima, que no cabe.
    Si aun así no entran, el gráfico se desliza dentro de su propio recuadro. */
 .grafico.compacto { gap: 5px; overflow-x: auto; padding-bottom: 4px; }
@@ -590,6 +598,31 @@ tr:hover td { background: var(--negro-suave); }
 .stock-aviso .btn { flex: 0 0 auto; padding: 10px 14px; font-size: 13px; min-height: 40px; }
 @media (max-width: 420px) {
   .stock-aviso .btn { flex: 1 0 100%; min-height: 44px; }
+}
+
+/* ------------------------------------------------------------
+   ETIQUETA DE DISCIPLINA (color + nombre)
+   El color lo pone el JS en línea; aquí va solo la forma.
+   El nombre siempre acompaña al color, así que nunca hay que
+   adivinar por el color solo.
+   ------------------------------------------------------------ */
+.chips-dis { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
+
+.chip-dis {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 10px; border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 13px; line-height: 1.5; color: var(--texto);
+  white-space: nowrap;
+}
+.chip-dis i {
+  width: 8px; height: 8px; flex: 0 0 8px;
+  border-radius: 50%;
+}
+
+@media (min-width: 761px) {
+  /* En la tabla, alineadas a la izquierda como el resto de la columna */
+  .chips-dis { justify-content: flex-start; }
 }
 
 /* ------------------------------------------------------------

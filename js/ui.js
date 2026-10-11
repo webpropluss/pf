@@ -67,6 +67,45 @@ function notificar(mensaje, esError = false) {
   setTimeout(() => t.remove(), 3500);
 }
 
+// ============================================================
+// COLOR POR DISCIPLINA
+//
+// Ocho colores fijos, validados para que se distingan entre sí
+// sobre el fondo oscuro de la app, también para quien no distingue
+// bien los colores. El color va por el ID de la disciplina, así una
+// disciplina conserva su color aunque borres otra.
+//
+// El nombre va SIEMPRE junto al color, así que nada depende de
+// distinguirlos: el color es una ayuda, no la única señal.
+// ============================================================
+const COLORES_DISCIPLINA = [
+  [ 57, 135, 229],   // azul
+  [217,  89,  38],   // naranja
+  [ 25, 158, 112],   // verde agua
+  [201, 133,   0],   // amarillo
+  [213,  81, 129],   // magenta
+  [  0, 131,   0],   // verde
+  [144, 133, 233],   // violeta
+  [230, 103, 103],   // rojo claro
+];
+
+function colorDisciplina(id) {
+  const n = Math.abs(parseInt(id, 10) || 0) % COLORES_DISCIPLINA.length;
+  const [r, g, b] = COLORES_DISCIPLINA[n];
+  return {
+    solido: `rgb(${r},${g},${b})`,
+    suave:  `rgba(${r},${g},${b},.18)`,
+    borde:  `rgba(${r},${g},${b},.5)`,
+  };
+}
+
+/** Etiqueta de color con el nombre de la disciplina. */
+function chipDisciplina(nombre, id) {
+  const c = colorDisciplina(id);
+  return `<span class="chip-dis" style="background:${c.suave};border-color:${c.borde}">` +
+         `<i style="background:${c.solido}"></i>${nombre || '—'}</span>`;
+}
+
 /** Avatar con foto o iniciales. */
 function avatarHtml(nombre, fotoUrl) {
   if (fotoUrl) return `<span class="avatar"><img src="${fotoUrl}" alt=""></span>`;
