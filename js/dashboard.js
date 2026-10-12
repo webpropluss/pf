@@ -118,6 +118,31 @@ async function cargarDashboard(contenido) {
         .gte('fecha', util.desdeISO(graDesde)).lte('fecha', hastaTS),
     ]);
 
+  // ---- Datos extra de los avisos: foto del alumno y su clase ----
+  // La función inscripciones_por_vencer solo devuelve nombre y teléfono,
+  // así que lo demás se pide aparte. Se evita así otra migración de SQL.
+  const avisos = porVencer.data || [];
+  const fotoDe = {}, clasesDe = {};
+  if (avisos.length) {
+    const [fichas, detalles] = await Promise.all([
+      db.from('alumnos').select('id, foto_url')
+        .in('id', [...new Set(avisos.map(v => v.alumno_id))]),
+      db.from('inscripcion_detalles')
+        .select('inscripcion_id, disciplina_id, disciplinas(nombre), horarios(dias, hora_inicio)')
+        .in('inscripcion_id', avisos.map(v => v.inscripcion_id)),
+    ]);
+    (fichas.data || []).forEach(a => fotoDe[a.id] = a.foto_url);
+    (detalles.data || []).forEach(d => {
+      const lista = clasesDe[d.inscripcion_id] = clasesDe[d.inscripcion_id] || [];
+      // una entrada por horario: si lleva dos de la misma disciplina, se ven los dos
+      lista.push({
+        disId: d.disciplina_id,
+        disciplina: d.disciplinas?.nombre || '—',
+        horario: d.horarios ? `${d.horarios.dias} ${d.horarios.hora_inicio}` : '',
+      });
+    });
+  }
+
   const ingresos = (pagos.data || []).reduce((s, p) => s + Number(p.monto), 0);
 
   // Inscripciones que EMPIEZAN en el período
@@ -278,7 +303,8 @@ async function cargarDashboard(contenido) {
         no depende del período elegido arriba.</p>
       ${(porVencer.data?.length)
         ? `<table>
-             <thead><tr><th>Alumno</th><th>Teléfono</th><th>Vence</th><th>Aviso</th><th></th></tr></thead>
+             <thead><tr><th></th><th>Alumno</th><th>Clase</th><th>Teléfono</th>
+                        <th>Vence</th><th>Aviso</th><th></th></tr></thead>
              <tbody>
                ${porVencer.data.map(v => {
                  const fechaBonita = new Date(v.fecha_fin + 'T00:00:00')
@@ -294,7 +320,15 @@ async function cargarDashboard(contenido) {
                  const enlace = `https://wa.me/${v.telefono}?text=${encodeURIComponent(mensaje)}`;
                  return `
                  <tr id="filaAviso-${v.inscripcion_id}">
-                   <td>${v.alumno_nombre}</td>
+                   <td>${avatarHtml(v.alumno_nombre, fotoDe[v.alumno_id])}</td>
+                   <td><strong>${v.alumno_nombre}</strong></td>
+                   <td><div class="clases-ins">${
+                     (clasesDe[v.inscripcion_id] || []).map(c => `
+                       <div class="clase-ins">
+                         ${chipDisciplina(c.disciplina, c.disId)}
+                         ${c.horario ? `<span class="subtexto">${c.horario}</span>` : ''}
+                       </div>`).join('') ||
+                     '<span class="subtexto">—</span>'}</div></td>
                    <td>${v.telefono ? telefonoMostrar(v.telefono) : '<span class="pill pill-rojo">Sin teléfono</span>'}</td>
                    <td>${util.fecha(v.fecha_fin)}</td>
                    <td><span class="pill pill-amarillo">Sin enviar</span></td>
@@ -346,7 +380,10 @@ async function marcarAvisoEnviado(inscripcionId) {
 
   const fila = document.getElementById('filaAviso-' + inscripcionId);
   if (fila) {
-    fila.querySelector('.pill').outerHTML = '<span class="pill pill-verde">Enviado</span>';
+    // Se busca la etiqueta del aviso por su color, no "la primera de la fila":
+    // ahora hay más columnas y el orden podría cambiar otra vez.
+    const etiqueta = fila.querySelector('.pill-amarillo');
+    if (etiqueta) etiqueta.outerHTML = '<span class="pill pill-verde">Enviado</span>';
     fila.querySelector('.acciones').innerHTML = '<span class="subtexto">Listo ✅</span>';
   }
   notificar('Aviso registrado como enviado.');
