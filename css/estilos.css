@@ -608,6 +608,17 @@ tr:hover td { background: var(--negro-suave); }
    ------------------------------------------------------------ */
 .chips-dis { display: flex; flex-wrap: wrap; gap: 5px; justify-content: flex-end; }
 
+/* Cada clase de una inscripción: la etiqueta de color y, debajo, su horario */
+.clases-ins { display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+              min-width: 0; }
+.clase-ins  { display: flex; flex-direction: column; gap: 2px; align-items: flex-end;
+              min-width: 0; }
+.clase-ins .subtexto { font-size: 12px; white-space: normal; }
+
+@media (min-width: 761px) {
+  .clases-ins, .clase-ins { align-items: flex-start; }
+}
+
 .chip-dis {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 3px 10px; border-radius: 999px;

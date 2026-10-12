@@ -12,7 +12,8 @@ let fechaCobroEditada = false;  // si tocan la fecha del cobro, deja de seguir a
 async function cargarInscripciones(contenido) {
   const [inscripciones, pagos] = await Promise.all([
     db.from('inscripciones')
-      .select('*, alumnos(nombre), inscripcion_detalles(disciplina_id, disciplinas(nombre))')
+      .select('*, alumnos(nombre), inscripcion_detalles(disciplina_id, horario_id, ' +
+              'disciplinas(nombre), horarios(dias, hora_inicio, instructores(nombre)))')
       .order('id', { ascending: false }).limit(200),
     db.from('pagos').select('inscripcion_id, monto'),
   ]);
@@ -24,15 +25,31 @@ async function cargarInscripciones(contenido) {
 
   const lista = inscripciones.data || [];
 
-  /** Disciplinas de una inscripción, sin repetir si lleva dos horarios de la misma. */
-  const disciplinasDe = (i) => {
+  /**
+   * Las clases de una inscripción: una por HORARIO, no por disciplina.
+   * Si el alumno lleva dos horarios de boxeo, se ven los dos, porque la
+   * gracia es justamente saber a cuál va.
+   */
+  const clasesDe = (i) => {
     const vistas = new Map();
     (i.inscripcion_detalles || []).forEach(d => {
-      if (d.disciplina_id != null && !vistas.has(d.disciplina_id))
-        vistas.set(d.disciplina_id, d.disciplinas?.nombre || '—');
+      const clave = d.horario_id ?? ('dis-' + d.disciplina_id);
+      if (vistas.has(clave)) return;
+      vistas.set(clave, {
+        disId: d.disciplina_id,
+        disciplina: d.disciplinas?.nombre || '—',
+        horario: d.horarios ? `${d.horarios.dias} ${d.horarios.hora_inicio}` : '',
+        instructor: d.horarios?.instructores?.nombre || '',
+      });
     });
-    return [...vistas.entries()];   // [[id, nombre], ...]
+    return [...vistas.values()];
   };
+
+  /** Todo el texto de una inscripción, para que el buscador lo encuentre. */
+  const textoDe = (i) => [
+    i.alumnos?.nombre || '', i.numero,
+    ...clasesDe(i).map(c => `${c.disciplina} ${c.horario} ${c.instructor}`),
+  ].join(' ').toLowerCase();
 
   const filas = (datos) => datos.map(i => {
             const pagado = pagadoPor[i.id] || 0;
@@ -47,8 +64,13 @@ async function cargarInscripciones(contenido) {
                 <td>${i.numero}</td>
                 <td>${util.fecha(util.dia(i.fecha))}</td>
                 <td><strong>${i.alumnos?.nombre || '—'}</strong></td>
-                <td><div class="chips-dis">${
-                  disciplinasDe(i).map(([id, n]) => chipDisciplina(n, id)).join('') ||
+                <td><div class="clases-ins">${
+                  clasesDe(i).map(c => `
+                    <div class="clase-ins">
+                      ${chipDisciplina(c.disciplina, c.disId)}
+                      ${c.horario ? `<span class="subtexto">${c.horario}${
+                        c.instructor ? ' · ' + c.instructor : ''}</span>` : ''}
+                    </div>`).join('') ||
                   '<span class="subtexto">—</span>'}</div></td>
                 <td>${util.fecha(i.fecha_inicio)} → ${util.fecha(i.fecha_fin)}</td>
                 <td>${util.bs(i.total)}</td>
@@ -67,12 +89,12 @@ async function cargarInscripciones(contenido) {
   contenido.innerHTML = `
     <header class="cabecera"><h2>Inscripciones</h2></header>
     <div class="toolbar">
-      <input type="search" id="buscarIns" placeholder="Buscar por nombre, N° o disciplina…">
+      <input type="search" id="buscarIns" placeholder="Buscar por nombre, disciplina, horario o instructor…">
       <button class="btn btn-rojo" onclick="nuevaInscripcion()">＋ Nueva inscripción</button>
     </div>
     <div class="panel">
       <table>
-        <thead><tr><th>N°</th><th>Fecha</th><th>Alumno</th><th>Disciplinas</th><th>Vigencia</th>
+        <thead><tr><th>N°</th><th>Fecha</th><th>Alumno</th><th>Clases</th><th>Vigencia</th>
                    <th>Total</th><th>Pagado</th><th>Saldo</th><th>Estado</th><th></th></tr></thead>
         <tbody id="tbodyIns">${filas(lista)}</tbody>
       </table>
@@ -90,9 +112,7 @@ async function cargarInscripciones(contenido) {
 
   const repintar = () => {
     const q = document.getElementById('buscarIns').value.trim().toLowerCase();
-    const hallados = !q ? lista : lista.filter(i =>
-      ((i.alumnos?.nombre || '') + ' ' + i.numero + ' ' +
-       disciplinasDe(i).map(([, n]) => n).join(' ')).toLowerCase().includes(q));
+    const hallados = !q ? lista : lista.filter(i => textoDe(i).includes(q));
     document.getElementById('tbodyIns').innerHTML = hallados.length
       ? filas(hallados)
       : `<tr><td colspan="10" class="cargando">No hay inscripciones que digan “${q}”.</td></tr>`;

@@ -9,13 +9,17 @@
 // alumno lleva dos horarios de boxeo, es un inscrito, no dos.
 // ============================================================
 
-let repDisciplinas = [];   // catálogo, para el filtro
+let repDisciplinas = [];   // catálogos, para los filtros
+let repInstructores = [];
 
 async function cargarReportes(contenido) {
   const hoy = util.hoy();
   const inicioMes = hoy.slice(0, 8) + '01';
 
-  repDisciplinas = verificar(await db.from('disciplinas').select('id, nombre').order('nombre'));
+  [repDisciplinas, repInstructores] = await Promise.all([
+    db.from('disciplinas').select('id, nombre').order('nombre').then(verificar),
+    db.from('instructores').select('id, nombre').order('nombre').then(verificar),
+  ]);
 
   contenido.innerHTML = `
     <header class="cabecera"><h2>Reportes</h2></header>
@@ -25,6 +29,10 @@ async function cargarReportes(contenido) {
       <select id="repDisciplina" onchange="generarReporte()">
         <option value="">Todas las disciplinas</option>
         ${repDisciplinas.map(d => `<option value="${d.id}">${d.nombre}</option>`).join('')}
+      </select>
+      <select id="repInstructor" onchange="generarReporte()">
+        <option value="">Todos los instructores</option>
+        ${repInstructores.map(i => `<option value="${i.id}">${i.nombre}</option>`).join('')}
       </select>
       <button class="btn btn-rojo" onclick="generarReporte()">Generar</button>
       <button class="btn btn-oscuro" onclick="exportarExcel()">📥 Exportar a Excel</button>
@@ -40,6 +48,7 @@ async function generarReporte() {
   const desde = document.getElementById('repDesde').value;
   const hasta = document.getElementById('repHasta').value;
   const disId = document.getElementById('repDisciplina')?.value || '';
+  const insId = document.getElementById('repInstructor')?.value || '';
   const cont = document.getElementById('repResultado');
 
   if (desde > hasta) { notificar('La fecha "desde" es posterior a la "hasta".', true); return; }
@@ -52,10 +61,14 @@ async function generarReporte() {
     // Las inscripciones se cuentan por CUÁNDO EMPIEZA la mensualidad,
     // igual que en el Dashboard. fecha_inicio es una fecha suelta.
     db.from('inscripciones')
-      .select('*, alumnos(nombre), inscripcion_detalles(disciplina_id, precio_mensual, precio_lista, meses, disciplinas(nombre))')
+      .select('*, alumnos(nombre), inscripcion_detalles(disciplina_id, horario_id, ' +
+              'precio_mensual, precio_lista, meses, disciplinas(nombre), ' +
+              'horarios(dias, hora_inicio, instructor_id, instructores(nombre)))')
       .eq('anulada', false).gte('fecha_inicio', desde).lte('fecha_inicio', hasta),
     db.from('pases_dia')
-      .select('*, disciplinas(nombre), horarios(disciplina_id, disciplinas(nombre))')
+      .select('*, disciplinas(nombre), ' +
+              'horarios(disciplina_id, instructor_id, dias, hora_inicio, ' +
+              'disciplinas(nombre), instructores(nombre))')
       .gte('fecha', desde).lte('fecha', hasta).order('fecha'),
   ]);
 
@@ -97,31 +110,80 @@ async function generarReporte() {
                          total: c.mensualidades + c.bsPases }))
     .sort((a, b) => b.total - a.total);
 
-  // ---------- ¿Filtrado por una disciplina? ----------
-  const filtrada = disId
-    ? { id: disId, nombre: repDisciplinas.find(d => String(d.id) === String(disId))?.nombre || '' }
-    : null;
+  // ---------- Resumen por instructor ----------
+  // Sale del horario de cada línea. Los pases del día NO entran aquí:
+  // desde que el formulario se simplificó no guardan instructor.
+  const porInstructor = {};
+  listaIns.forEach(i => (i.inscripcion_detalles || []).forEach(d => {
+    const id = d.horarios?.instructor_id ?? '—';
+    const c = porInstructor[id] = porInstructor[id] ||
+      { nombre: d.horarios?.instructores?.nombre || 'Sin instructor',
+        mensualidades: 0, alumnos: new Set(), clases: 0 };
+    c.mensualidades += Number(d.precio_mensual) * d.meses;
+    c.alumnos.add(i.alumno_id);
+    c.clases++;
+  }));
+  // Los pases que tienen horario también se le atribuyen a su instructor.
+  // Los viejos sin horario quedan en "Sin instructor", que es la verdad.
+  listaPases.forEach(p => {
+    const id = p.horarios?.instructor_id ?? '—';
+    const c = porInstructor[id] = porInstructor[id] ||
+      { nombre: p.horarios?.instructores?.nombre || 'Sin instructor',
+        mensualidades: 0, alumnos: new Set(), clases: 0, pases: 0, bsPases: 0 };
+    c.pases = (c.pases || 0) + 1;
+    c.bsPases = (c.bsPases || 0) + Number(p.monto);
+  });
 
-  const insFiltradas = filtrada
-    ? listaIns.filter(i => (i.inscripcion_detalles || [])
-        .some(d => String(d.disciplina_id) === String(disId)))
+  const filasInstructor = Object.values(porInstructor)
+    .map(c => ({ nombre: c.nombre, mensualidades: c.mensualidades,
+                 inscritos: c.alumnos.size, clases: c.clases,
+                 pases: c.pases || 0, bsPases: c.bsPases || 0,
+                 total: c.mensualidades + (c.bsPases || 0) }))
+    .sort((a, b) => b.total - a.total);
+
+  // ---------- Filtros ----------
+  const nombreDis = repDisciplinas.find(d => String(d.id) === String(disId))?.nombre || '';
+  const nombreIns = repInstructores.find(i => String(i.id) === String(insId))?.nombre || '';
+  const hayFiltro = !!(disId || insId);
+
+  /** ¿Esta línea de inscripción pasa los dos filtros a la vez? */
+  const lineaPasa = (d) =>
+    (!disId || String(d.disciplina_id) === String(disId)) &&
+    (!insId || String(d.horarios?.instructor_id) === String(insId));
+
+  const insFiltradas = hayFiltro
+    ? listaIns.filter(i => (i.inscripcion_detalles || []).some(lineaPasa))
     : listaIns;
-  const pasesFiltrados = filtrada
-    ? listaPases.filter(p => String(disDePase(p)) === String(disId))
-    : listaPases;
 
-  repDatos = { desde, hasta, filtro: filtrada?.nombre || 'Todas',
+  // Ahora el pase guarda su horario, así que sí se puede saber de qué
+  // instructor fue. Los pases viejos, sin horario, no se le atribuyen
+  // a nadie: quedan fuera cuando se filtra por instructor.
+  const pasesFiltrados = listaPases.filter(p =>
+    (!disId || String(disDePase(p)) === String(disId)) &&
+    (!insId || String(p.horarios?.instructor_id) === String(insId)));
+
+  // ¿Hay pases del rango que el filtro de instructor deja fuera por no
+  // tener horario? Conviene decirlo, para que el número no engañe.
+  const pasesSinHorario = insId
+    ? listaPases.filter(p => !p.horarios &&
+        (!disId || String(disDePase(p)) === String(disId))).length
+    : 0;
+
+  const titulo = [nombreDis, nombreIns].filter(Boolean).join(' · ');
+  repDatos = { desde, hasta, filtro: titulo || 'Todas',
                pagos: listaPagos, inscripciones: insFiltradas,
-               pases: pasesFiltrados, resumen: filasResumen };
+               pases: pasesFiltrados, resumen: filasResumen,
+               instructores: filasInstructor };
 
-  cont.innerHTML = filtrada
-    ? vistaDisciplina(filtrada, insFiltradas, pasesFiltrados, disId, desde, hasta)
-    : vistaGeneral(listaPagos, listaIns, filasResumen, descuentosDados);
+  cont.innerHTML = hayFiltro
+    ? vistaFiltrada({ titulo, nombreDis, nombreIns, pasesSinHorario },
+                    insFiltradas, pasesFiltrados, lineaPasa, desde, hasta)
+    : vistaGeneral(listaPagos, listaIns, filasResumen, filasInstructor, descuentosDados);
 }
 
 // ---------------------- VISTA GENERAL ----------------------
 
-function vistaGeneral(pagos, inscripciones, resumen, descuentosDados) {
+function vistaGeneral(pagos, inscripciones, resumen, porInstructor, descuentosDados) {
   const totalCobrado   = pagos.reduce((s, p) => s + Number(p.monto), 0);
   const totalFacturado = inscripciones.reduce((s, i) => s + Number(i.total), 0);
   const totalPases     = resumen.reduce((s, r) => s + r.bsPases, 0);
@@ -158,7 +220,28 @@ function vistaGeneral(pagos, inscripciones, resumen, descuentosDados) {
           '<tr><td colspan="5" class="cargando">Sin datos en el rango.</td></tr>'}
         </tbody>
       </table>
-      <p class="subtexto" style="margin-top:10px">Elige una disciplina arriba para ver su detalle.</p>
+      <p class="subtexto" style="margin-top:10px">Elige una disciplina o un instructor arriba para ver su detalle.</p>
+    </div>
+
+    <div class="panel">
+      <h3>Por instructor</h3>
+      <table>
+        <thead><tr><th>Instructor</th><th>Alumnos</th><th>Mensualidades</th>
+                   <th>Pases</th><th>Total generado</th></tr></thead>
+        <tbody>${porInstructor.map(r => `
+          <tr>
+            <td><strong>${r.nombre}</strong></td>
+            <td>${r.inscritos}</td>
+            <td>${util.bs(r.mensualidades)}</td>
+            <td>${r.pases ? `${r.pases} · ${util.bs(r.bsPases)}` : '—'}</td>
+            <td><strong>${util.bs(r.total)}</strong></td>
+          </tr>`).join('') ||
+          '<tr><td colspan="5" class="cargando">Sin datos en el rango.</td></tr>'}
+        </tbody>
+      </table>
+      <p class="subtexto" style="margin-top:10px">Los pases del día se le atribuyen al
+        instructor de su horario. Los registrados sin horario salen como
+        <strong>Sin instructor</strong>.</p>
     </div>
 
     <div class="panel">
@@ -175,13 +258,13 @@ function vistaGeneral(pagos, inscripciones, resumen, descuentosDados) {
     </div>`;
 }
 
-// ---------------------- VISTA DE UNA DISCIPLINA ----------------------
+// ---------------------- VISTA FILTRADA ----------------------
 
-function vistaDisciplina(dis, inscripciones, pases, disId, desde, hasta) {
-  // Solo las líneas de ESTA disciplina, no las demás de la misma inscripción
+function vistaFiltrada(f, inscripciones, pases, lineaPasa, desde, hasta) {
+  // Solo las líneas que pasan los filtros, no todas las de esas inscripciones
   const lineas = [];
   inscripciones.forEach(i => (i.inscripcion_detalles || [])
-    .filter(d => String(d.disciplina_id) === String(disId))
+    .filter(lineaPasa)
     .forEach(d => lineas.push({ ins: i, det: d })));
 
   const mensualidades = lineas.reduce((s, l) => s + Number(l.det.precio_mensual) * l.det.meses, 0);
@@ -193,9 +276,14 @@ function vistaDisciplina(dis, inscripciones, pases, disId, desde, hasta) {
     const id = l.ins.alumno_id;
     const a = porAlumno.get(id) || {
       nombre: l.ins.alumnos?.nombre || '—',
-      inicio: l.ins.fecha_inicio, vence: l.ins.fecha_fin, clases: 0, total: 0,
+      inicio: l.ins.fecha_inicio, vence: l.ins.fecha_fin,
+      clases: [], total: 0,
     };
-    a.clases++;
+    a.clases.push([
+      l.det.disciplinas?.nombre || '',
+      l.det.horarios ? `${l.det.horarios.dias} ${l.det.horarios.hora_inicio}` : '',
+      l.det.horarios?.instructores?.nombre || '',
+    ].filter(Boolean).join(' · '));
     a.total += Number(l.det.precio_mensual) * l.det.meses;
     if (l.ins.fecha_inicio < a.inicio) a.inicio = l.ins.fecha_inicio;
     if (l.ins.fecha_fin   > a.vence)  a.vence  = l.ins.fecha_fin;
@@ -203,18 +291,19 @@ function vistaDisciplina(dis, inscripciones, pases, disId, desde, hasta) {
   });
   const filasAlumno = [...porAlumno.values()].sort((a, b) => b.total - a.total);
   const inscritos = filasAlumno.length;
+
   const bsPases = pases.reduce((s, p) => s + Number(p.monto), 0);
   const descuentos = lineas.reduce((s, l) =>
     s + Math.max(Number(l.det.precio_lista ?? l.det.precio_mensual) - Number(l.det.precio_mensual), 0) * l.det.meses, 0);
 
   return `
     <div class="tarjetas">
-      <div class="tarjeta acento"><div class="etiqueta">Inscritos en ${dis.nombre}</div>
+      <div class="tarjeta acento"><div class="etiqueta">Inscritos</div>
         <div class="valor">${inscritos}</div>
-        <div class="subtexto">alumnos distintos, sin importar el horario</div></div>
+        <div class="subtexto">en ${f.titulo}</div></div>
       <div class="tarjeta acento"><div class="etiqueta">Mensualidades</div>
         <div class="valor">${util.bs(mensualidades)}</div>
-        <div class="subtexto">${lineas.length} línea${lineas.length === 1 ? '' : 's'} de inscripción</div></div>
+        <div class="subtexto">${lineas.length} clase${lineas.length === 1 ? '' : 's'}</div></div>
       <div class="tarjeta acento"><div class="etiqueta">Pases del día</div>
         <div class="valor">${util.bs(bsPases)}</div>
         <div class="subtexto">${pases.length} pase${pases.length === 1 ? '' : 's'}</div></div>
@@ -226,36 +315,48 @@ function vistaDisciplina(dis, inscripciones, pases, disId, desde, hasta) {
         <div class="valor">${util.bs(descuentos)}</div></div>` : ''}
     </div>
 
+    ${f.pasesSinHorario ? `
+      <div class="panel">
+        <p class="subtexto" style="margin:0">Hay <strong>${f.pasesSinHorario}
+          pase${f.pasesSinHorario === 1 ? '' : 's'} del día sin horario</strong> en este
+          rango que no se cuentan aquí: son de antes de que el pase guardara el horario,
+          así que no se puede saber qué instructor dio esa clase. Aparecen igual en la
+          vista sin filtro de instructor.</p>
+      </div>` : ''}
+
     <div class="panel">
-      <h3>Inscritos en ${dis.nombre} (${inscritos})</h3>
+      <h3>Inscritos · ${f.titulo} (${inscritos})</h3>
       <table>
-        <thead><tr><th>Alumno</th><th>Inicio</th><th>Vence</th>
-                   <th>Clases</th><th>Pagó</th></tr></thead>
+        <thead><tr><th>Alumno</th><th>Clases</th><th>Inicio</th><th>Vence</th><th>Pagó</th></tr></thead>
         <tbody>${filasAlumno.map(a => `
           <tr>
             <td><strong>${a.nombre}</strong></td>
+            <td><div class="lineas">${a.clases.map(c => `<span>${c}</span>`).join('')}</div></td>
             <td>${util.fecha(a.inicio)}</td>
             <td>${util.fecha(a.vence)}</td>
-            <td>${a.clases}${a.clases > 1 ? ' <span class="subtexto">horarios</span>' : ''}</td>
             <td><strong>${util.bs(a.total)}</strong></td>
           </tr>`).join('') ||
-          '<tr><td colspan="5" class="cargando">Nadie se inscribió a esta disciplina en el rango.</td></tr>'}
+          '<tr><td colspan="5" class="cargando">Nadie se inscribió con ese filtro en el rango.</td></tr>'}
         </tbody>
       </table>
       <p class="subtexto" style="margin-top:10px">Una fila por alumno. Si lleva varios
-        horarios de ${dis.nombre}, siguen siendo un inscrito y aquí se suma lo que paga por todos.</p>
+        horarios, siguen siendo un inscrito y aquí se suma lo que paga por todos.</p>
     </div>
 
     <div class="panel">
-      <h3>Pases del día de ${dis.nombre} (${pases.length})</h3>
+      <h3>Pases del día · ${f.titulo} (${pases.length})</h3>
       <table>
-        <thead><tr><th>Fecha</th><th>Monto</th><th>Pago</th><th>Registró</th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Horario</th><th>Monto</th><th>Pago</th><th>Registró</th></tr></thead>
         <tbody>${pases.map(p => `
           <tr><td>${util.fecha(p.fecha)}</td>
+              <td>${p.horarios
+                    ? `${p.horarios.dias} ${p.horarios.hora_inicio}${
+                        p.horarios.instructores?.nombre ? ' · ' + p.horarios.instructores.nombre : ''}`
+                    : '<span class="subtexto">Sin horario</span>'}</td>
               <td><strong>${util.bs(p.monto)}</strong></td>
               <td>${p.metodo_pago}</td>
               <td class="subtexto">${p.usuario_nombre || '—'}</td></tr>`).join('') ||
-          '<tr><td colspan="4" class="cargando">Sin pases de esta disciplina en el rango.</td></tr>'}
+          '<tr><td colspan="5" class="cargando">Sin pases con ese filtro en el rango.</td></tr>'}
         </tbody>
       </table>
     </div>`;
@@ -298,6 +399,13 @@ function exportarExcel() {
     'Total generado (Bs.)': r.total,
   })));
   XLSX.utils.book_append_sheet(wb, hojaDis, 'Por disciplina');
+
+  const hojaInst = XLSX.utils.json_to_sheet((repDatos.instructores || []).map(r => ({
+    Instructor: r.nombre, Alumnos: r.inscritos, 'Clases dictadas': r.clases,
+    'Mensualidades (Bs.)': r.mensualidades, Pases: r.pases,
+    'Pases (Bs.)': r.bsPases, 'Total generado (Bs.)': r.total,
+  })));
+  XLSX.utils.book_append_sheet(wb, hojaInst, 'Por instructor');
 
   const sufijo = repDatos.filtro === 'Todas' ? '' : '_' + repDatos.filtro.replace(/\s+/g, '-');
   XLSX.writeFile(wb, `PrimeFit_Reporte_${repDatos.desde}_a_${repDatos.hasta}${sufijo}.xlsx`);
