@@ -12,14 +12,15 @@ let paseHorarios = [];   // catálogo, para filtrar por disciplina
 async function cargarPases(contenido) {
   const hoy = util.hoy();
 
-  const [pases, config] = await Promise.all([
+  const [pases, config, disciplinas] = await Promise.all([
     db.from('pases_dia')
       // alumnos y horarios siguen aquí solo para los pases viejos,
       // que sí tenían visitante y clase. Los nuevos usan disciplina.
       .select('*, disciplinas(nombre), alumnos(nombre), ' +
-              'horarios(dias, hora_inicio, disciplinas(nombre), instructores(nombre))')
+              'horarios(disciplina_id, dias, hora_inicio, disciplinas(nombre), instructores(nombre))')
       .order('fecha', { ascending: false }).order('id', { ascending: false }).limit(200),
     db.from('config').select('clave, valor').in('clave', ['precio_pase_dia', 'precio_pase_dia_2']),
+    db.from('disciplinas').select('id, nombre').order('nombre'),
   ]);
 
   const lista = pases.data || [];
@@ -33,23 +34,51 @@ async function cargarPases(contenido) {
     || p.horarios?.disciplinas?.nombre
     || '<span class="subtexto">Libre</span>';
 
-  const deHoy  = lista.filter(p => p.fecha === hoy);
-  const delMes = lista.filter(p => util.mes(p.fecha) === hoy.slice(0, 7));
-  const totalHoy = deHoy.reduce((s, p) => s + Number(p.monto), 0);
-  const totalMes = delMes.reduce((s, p) => s + Number(p.monto), 0);
+  /** De qué disciplina es, para el filtro. */
+  const disDe = (p) => p.disciplina_id ?? p.horarios?.disciplina_id ?? null;
+
+  /** Las cuatro cifras de arriba, sobre el conjunto que se esté mirando. */
+  const resumen = (datos) => {
+    const deHoy  = datos.filter(p => p.fecha === hoy);
+    const delMes = datos.filter(p => util.mes(p.fecha) === hoy.slice(0, 7));
+    const suma = (xs) => xs.reduce((s, p) => s + Number(p.monto), 0);
+    return { hoy: deHoy.length, cobradoHoy: suma(deHoy),
+             mes: delMes.length, cobradoMes: suma(delMes) };
+  };
+
+  const filas = (datos) => datos.map(p => `
+    <tr>
+      <td>${util.fecha(p.fecha)}${p.fecha === hoy ? ' <span class="pill pill-verde">Hoy</span>' : ''}</td>
+      <td><strong>${claseDe(p)}</strong>
+          ${p.horarios ? `<div class="subtexto">${p.horarios.dias} ${p.horarios.hora_inicio}${
+            p.horarios.instructores?.nombre ? ' · ' + p.horarios.instructores.nombre : ''}</div>` : ''}
+          ${p.alumnos?.nombre ? `<div class="subtexto">${p.alumnos.nombre}</div>` : ''}</td>
+      <td><strong>${util.bs(p.monto)}</strong></td>
+      <td>${p.metodo_pago}</td>
+      <td class="subtexto">${p.usuario_nombre || '—'}</td>
+      <td class="acciones">
+        <button title="Eliminar pase" onclick="eliminarPase(${p.id})">🗑️<span class="solo-movil"> Eliminar</span></button>
+      </td>
+    </tr>`).join('');
 
   contenido.innerHTML = `
     <header class="cabecera"><h2>Pases del día</h2></header>
 
     <div class="toolbar">
+      <select id="filtroDisPase">
+        <option value="">Todas las disciplinas</option>
+        ${(disciplinas.data || []).map(d => `<option value="${d.id}">${d.nombre}</option>`).join('')}
+      </select>
       <button class="btn btn-rojo" onclick="dialogoPase(${monto1}, ${monto2})">＋ Nuevo pase del día</button>
     </div>
 
+    <p class="subtexto" id="avisoDisPase" style="margin:-4px 0 10px; display:none"></p>
+
     <div class="tarjetas">
-      <div class="tarjeta acento"><div class="etiqueta">Pases de hoy</div><div class="valor">${deHoy.length}</div></div>
-      <div class="tarjeta acento"><div class="etiqueta">Cobrado hoy</div><div class="valor">${util.bs(totalHoy)}</div></div>
-      <div class="tarjeta acento"><div class="etiqueta">Pases del mes</div><div class="valor">${delMes.length}</div></div>
-      <div class="tarjeta acento"><div class="etiqueta">Cobrado en el mes</div><div class="valor">${util.bs(totalMes)}</div></div>
+      <div class="tarjeta acento"><div class="etiqueta">Pases de hoy</div><div class="valor" id="paseHoyN"></div></div>
+      <div class="tarjeta acento"><div class="etiqueta">Cobrado hoy</div><div class="valor" id="paseHoyBs"></div></div>
+      <div class="tarjeta acento"><div class="etiqueta">Pases del mes</div><div class="valor" id="paseMesN"></div></div>
+      <div class="tarjeta acento"><div class="etiqueta">Cobrado en el mes</div><div class="valor" id="paseMesBs"></div></div>
     </div>
 
     <div class="panel">
@@ -57,25 +86,53 @@ async function cargarPases(contenido) {
       ${lista.length ? `
         <table>
           <thead><tr><th>Fecha</th><th>Disciplina</th><th>Monto</th><th>Pago</th><th>Registró</th><th></th></tr></thead>
-          <tbody>
-            ${lista.map(p => `
-              <tr>
-                <td>${util.fecha(p.fecha)}${p.fecha === hoy ? ' <span class="pill pill-verde">Hoy</span>' : ''}</td>
-                <td><strong>${claseDe(p)}</strong>
-                    ${p.horarios ? `<div class="subtexto">${p.horarios.dias} ${p.horarios.hora_inicio}${
-                      p.horarios.instructores?.nombre ? ' · ' + p.horarios.instructores.nombre : ''}</div>` : ''}
-                    ${p.alumnos?.nombre ? `<div class="subtexto">${p.alumnos.nombre}</div>` : ''}</td>
-                <td><strong>${util.bs(p.monto)}</strong></td>
-                <td>${p.metodo_pago}</td>
-                <td class="subtexto">${p.usuario_nombre || '—'}</td>
-                <td class="acciones">
-                  <button title="Eliminar pase" onclick="eliminarPase(${p.id})">🗑️</button>
-                </td>
-              </tr>`).join('')}
-          </tbody>
-        </table>`
+          <tbody id="tbodyPases">${filas(lista)}</tbody>
+        </table>
+        <p class="subtexto" id="contadorPases" style="margin-top:12px"></p>`
         : '<p class="cargando">Todavía no se registró ningún pase del día.</p>'}
     </div>`;
+
+  /**
+   * Repinta todo con la disciplina elegida: las cuatro cifras de arriba
+   * también se filtran, porque dejarlas en el total mientras la lista muestra
+   * otra cosa haría leer mal la pantalla.
+   */
+  const pintar = (dis) => {
+    const hallados = !dis ? lista : lista.filter(p => String(disDe(p)) === String(dis));
+    const r = resumen(hallados);
+
+    const poner = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    poner('paseHoyN',  r.hoy);
+    poner('paseHoyBs', util.bs(r.cobradoHoy));
+    poner('paseMesN',  r.mes);
+    poner('paseMesBs', util.bs(r.cobradoMes));
+
+    // Si está filtrado hay que decirlo: si no, las cifras engañan.
+    const aviso = document.getElementById('avisoDisPase');
+    if (aviso) {
+      const sel = document.getElementById('filtroDisPase');
+      const nombre = dis ? sel.options[sel.selectedIndex]?.text : '';
+      aviso.style.display = dis ? '' : 'none';
+      aviso.textContent = dis ? `Las cifras son solo de ${nombre}.` : '';
+    }
+
+    const cuerpo = document.getElementById('tbodyPases');
+    if (cuerpo) {
+      cuerpo.innerHTML = hallados.length
+        ? filas(hallados)
+        : '<tr><td colspan="6" class="cargando">No hay pases de esa disciplina en la lista.</td></tr>';
+    }
+
+    const el = document.getElementById('contadorPases');
+    if (el) {
+      el.textContent = hallados.length === lista.length
+        ? `${lista.length} pase${lista.length === 1 ? '' : 's'}`
+        : `Mostrando ${hallados.length} de ${lista.length}`;
+    }
+  };
+
+  pintar('');
+  document.getElementById('filtroDisPase')?.addEventListener('change', (e) => pintar(e.target.value));
 }
 
 /**

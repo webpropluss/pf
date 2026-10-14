@@ -116,7 +116,6 @@ async function imprimirInscripcion(id) {
   await imprimirPapel(`
     ${encabezadoRecibo(C, 'Recibo de inscripción', i.anulada)}
     <div class="r-raya"></div>
-    ${lineaRecibo('Recibo N°', i.numero)}
     ${lineaRecibo('Emitido', util.fecha(util.hoy()))}
 
     <div class="r-raya"></div>
@@ -175,7 +174,6 @@ async function imprimirVenta(id) {
   await imprimirPapel(`
     ${encabezadoRecibo(C, 'Recibo de venta', v.anulada)}
     <div class="r-raya"></div>
-    ${lineaRecibo('Venta N°', v.numero)}
     ${lineaRecibo('Emitido', new Date(v.fecha).toLocaleString('es-BO',
         { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }))}
 

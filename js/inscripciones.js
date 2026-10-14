@@ -6,6 +6,7 @@
 let insDetalles = [];   // líneas de la nueva inscripción
 let insCatalogo = { disciplinas: [], horarios: [] };
 let insAlumnos = [];    // lista de alumnos, para el buscador
+const POR_PAGINA = 20;  // inscripciones por pantalla
 let pagoEditadoAMano = false;   // si tocan "Paga ahora", deja de seguir al total
 let fechaCobroEditada = false;  // si tocan la fecha del cobro, deja de seguir al inicio
 
@@ -98,31 +99,70 @@ async function cargarInscripciones(contenido) {
       <table>
         <thead><tr><th>N°</th><th>Fecha</th><th>Alumno</th><th>Clases</th><th>Vigencia</th>
                    <th>Total</th><th>Pagado</th><th>Saldo</th><th>Estado</th><th></th></tr></thead>
-        <tbody id="tbodyIns">${filas(lista)}</tbody>
+        <tbody id="tbodyIns"></tbody>
       </table>
+      <div class="paginas" id="paginasIns"></div>
       <p class="subtexto" id="contadorIns" style="margin-top:12px"></p>
     </div>`;
 
-  const contador = (n) => {
-    const el = document.getElementById('contadorIns');
-    // "inscripción" pierde el acento en plural: inscripciones, no inscripciónes
-    if (el) el.textContent = n === lista.length
-      ? `${lista.length} ${lista.length === 1 ? 'inscripción' : 'inscripciones'}`
-      : `Mostrando ${n} de ${lista.length}`;
-  };
-  contador(lista.length);
+  // De a 20 por pantalla: con 200 inscripciones, dibujarlas todas de golpe
+  // hace que el teléfono tarde en responder al entrar al módulo.
+  let pagina = 1;
 
   const repintar = () => {
     const q = document.getElementById('buscarIns').value.trim().toLowerCase();
     const hallados = !q ? lista : lista.filter(i => textoDe(i).includes(q));
+    const paginas = Math.max(1, Math.ceil(hallados.length / POR_PAGINA));
+    if (pagina > paginas) pagina = paginas;
+
+    const desde = (pagina - 1) * POR_PAGINA;
+    const trozo = hallados.slice(desde, desde + POR_PAGINA);
+
     document.getElementById('tbodyIns').innerHTML = hallados.length
-      ? filas(hallados)
+      ? filas(trozo)
       : `<tr><td colspan="10" class="cargando">No hay inscripciones que digan “${q}”.</td></tr>`;
-    contador(hallados.length);
+
+    // Contador: dice qué se está viendo de qué total
+    const cont = document.getElementById('contadorIns');
+    if (cont) {
+      // "inscripción" pierde el acento en plural: inscripciones, no inscripciónes
+      const palabra = hallados.length === 1 ? 'inscripción' : 'inscripciones';
+      cont.textContent = !hallados.length
+        ? `0 de ${lista.length} ${lista.length === 1 ? 'inscripción' : 'inscripciones'}`
+        : hallados.length <= POR_PAGINA
+          ? `${hallados.length} ${palabra}` +
+            (hallados.length !== lista.length ? ` de ${lista.length}` : '')
+          : `Viendo ${desde + 1}–${desde + trozo.length} de ${hallados.length} ${palabra}` +
+            (hallados.length !== lista.length ? ` (filtradas de ${lista.length})` : '');
+    }
+
+    // Botones de página: solo aparecen si hay más de una
+    const nav = document.getElementById('paginasIns');
+    if (nav) {
+      nav.innerHTML = paginas <= 1 ? '' : `
+        <button type="button" class="btn btn-oscuro" ${pagina === 1 ? 'disabled' : ''}
+                onclick="cambiarPaginaIns(-1)">← Anterior</button>
+        <span class="subtexto">Página ${pagina} de ${paginas}</span>
+        <button type="button" class="btn btn-oscuro" ${pagina === paginas ? 'disabled' : ''}
+                onclick="cambiarPaginaIns(1)">Siguiente →</button>`;
+    }
     // Las etiquetas de las tarjetas en el teléfono las repone solo el
     // observador de ui.js, que vigila todo el documento.
   };
-  document.getElementById('buscarIns').addEventListener('input', repintar);
+
+  // Para que los botones (que están en el HTML) puedan cambiar de página
+  window.cambiarPaginaIns = (paso) => {
+    pagina += paso;
+    repintar();
+    document.querySelector('.panel')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
+
+  document.getElementById('buscarIns').addEventListener('input', () => {
+    pagina = 1;              // al buscar se vuelve al principio
+    repintar();
+  });
+
+  repintar();
 }
 
 // ---------------------- NUEVA INSCRIPCIÓN ----------------------

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Banco de pruebas v18</title>
+  <!-- El banco vive en /pruebas/, la app real en la raíz. Con esto las
+       rutas relativas (img/..., js/...) se resuelven igual que en app.html. -->
+  <base href="/">
+  <link rel="stylesheet" href="css/estilos.css">
+</head>
+<body>
+  <div class="app">
+    <main class="contenido" id="contenido"></main>
+  </div>
+
+  <script src="js/util.js"></script>
+  <script>
+    const CODIGO_PAIS = '591';   // normalmente lo pone config.js
+
+    // ---------- datos de prueba ----------
+    const DATOS = {
+      alumnos: [],   // se llena abajo con 100 alumnos
+      instructores: [
+        { id: 11, nombre: 'Marco' },
+        { id: 12, nombre: 'Lucía' },
+      ],
+      disciplinas: [
+        { id: 1, nombre: 'Boxeo',    precio_mensual: 150, activo: true },
+        { id: 2, nombre: 'Crossfit', precio_mensual: 200, activo: true },
+        { id: 3, nombre: 'Híbrido',  precio_mensual: 200, activo: true },
+      ],
+      horarios: [
+        { id: 101, disciplina_id: 1, dias: 'Lu-Mi-Vi', hora_inicio: '18:00',
+          cupo: 20, inscritos: 3, activo: true, instructor_id: 11, instructores: { nombre: 'Marco' } },
+        { id: 301, disciplina_id: 3, dias: 'Lu-Mi-Vi', hora_inicio: '06:00',
+          cupo: 15, inscritos: 2, activo: true, instructor_id: 11, instructores: { nombre: 'Marco' } },
+        { id: 302, disciplina_id: 3, dias: 'Ma-Ju', hora_inicio: '20:00',
+          cupo: 15, inscritos: 1, activo: true, instructor_id: 12, instructores: { nombre: 'Lucía' } },
+        { id: 11, disciplina_id: 1, dias: 'Lu-Mi-Vi', hora_inicio: '18:00',
+          cupo: 20, inscritos: 3, activo: true, instructores: { nombre: 'Marco' } },
+        { id: 12, disciplina_id: 1, dias: 'Ma-Ju',    hora_inicio: '07:00',
+          cupo: 10, inscritos: 10, activo: true, instructores: { nombre: 'Lucía' } },
+        { id: 21, disciplina_id: 2, dias: 'Lu a Vi',  hora_inicio: '06:00',
+          cupo: 15, inscritos: 2, activo: true, instructores: { nombre: 'Ana' } },
+      ],
+      productos: [
+        { id: 101, codigo: 'PRO-001', nombre: 'Bucal Venum',
+          descripcion: 'Simple, transparente, con estuche', categoria: 'Accesorios',
+          precio_compra: 18.5, precio_venta: 35, stock: 10, stock_minimo: 3, activo: true, foto_url: null },
+        { id: 102, codigo: 'PRO-002', nombre: 'Bucal Venum',
+          descripcion: 'Doble, para boxeo, gel adaptable', categoria: 'Accesorios',
+          precio_compra: 28.9, precio_venta: 55, stock: 6, stock_minimo: 3, activo: true, foto_url: null },
+        { id: 103, codigo: 'PRO-003', nombre: 'Agua 600 ml', descripcion: '',
+          categoria: 'Bebidas', precio_compra: 3.83, precio_venta: 6.5,
+          stock: 20, stock_minimo: 3, activo: true, foto_url: null },
+      ],
+      // --- datos con fechas, para probar el filtro del dashboard ---
+      // HOY se calcula al cargar; ver más abajo.
+      inscripciones: [],
+      pagos: [],
+      pases_dia: [],
+      ventas: [],
+      config: [
+        { clave: 'dias_aviso_whatsapp', valor: '3' },
+        { clave: 'mensaje_whatsapp', valor: 'Hola {nombre}, vence el {fecha}.' },
+      ],
+    };
+
+    // Fechas relativas a hoy, para que las pruebas no caduquen
+    const _h = new Date();
+    // En hora local, igual que la app. Con toISOString() (UTC) estos datos
+    // de prueba quedaban fechados "mañana" desde las 20:00 en Bolivia.
+    const dia = (n) => { const f = new Date(_h); f.setDate(f.getDate() - n);
+                         return util.diaLocal(f); };
+    const HOY = dia(0), AYER = dia(1), HACE6 = dia(6), HACE20 = dia(20);
+
+    // Caso del usuario: cargada HOY, pero la mensualidad empezó hace 6 días
+    // y el cobro quedó anotado ese día.
+    DATOS.inscripciones = [
+      { id: 501, numero: 1, fecha: HOY + 'T10:00:00', alumno_id: 1,
+        fecha_inicio: HACE6, fecha_fin: dia(-25), total: 130, anulada: false },
+      { id: 502, numero: 2, fecha: HOY + 'T10:05:00', alumno_id: 2,
+        fecha_inicio: HOY,   fecha_fin: dia(-30), total: 150, anulada: false },
+      { id: 503, numero: 3, fecha: HACE20 + 'T09:00:00', alumno_id: 3,
+        fecha_inicio: HACE20, fecha_fin: dia(-10), total: 200, anulada: false },
+    ];
+    DATOS.pagos = [
+      { id: 1, inscripcion_id: 501, alumno_id: 1, monto: 130, fecha: HACE6 + 'T12:00:00' },
+      { id: 2, inscripcion_id: 502, alumno_id: 2, monto: 150, fecha: HOY + 'T12:00:00' },
+      { id: 3, inscripcion_id: 503, alumno_id: 3, monto: 100, fecha: HACE20 + 'T12:00:00' },
+    ];
+    DATOS.config = [
+      { clave: 'precio_pase_dia', valor: '10' },
+      { clave: 'precio_pase_dia_2', valor: '15' },
+      { clave: 'dias_aviso_whatsapp', valor: '3' },
+      { clave: 'mensaje_whatsapp', valor: 'Hola {nombre}, vence el {fecha}.' },
+    ];
+    DATOS.pases_dia = [
+      // nuevos: con disciplina, sin nombre
+      { id: 1, fecha: HOY, monto: 10, metodo_pago: 'Efectivo', usuario_nombre: 'Caja',
+        disciplina_id: 1, disciplinas: { nombre: 'Boxeo' } },
+      { id: 2, fecha: HOY, monto: 10, metodo_pago: 'QR', usuario_nombre: 'Caja',
+        disciplina_id: 2, disciplinas: { nombre: 'Crossfit' } },
+      // viejo: traía visitante y horario; debe seguir viéndose
+      { id: 3, fecha: HACE6, monto: 20, metodo_pago: 'Efectivo', usuario_nombre: 'Admin',
+        alumnos: { nombre: 'Pedro Visitante' },
+        horarios: { dias: 'Lu-Mi-Vi', hora_inicio: '18:00', disciplinas: { nombre: 'Boxeo' } } },
+    ];
+    DATOS.promociones = [
+      { id: 701, numero: 1, fecha: HOY + 'T11:00:00', motivo: 'Inauguración',
+        entregado_a: 'Sorteo entre asistentes', costo: 294.90, valor_venta: 475,
+        usuario_nombre: 'Admin', anulada: false,
+        promocion_detalles: [
+          { nombre_producto: 'Proteína Whey', descripcion_producto: 'Chocolate', cantidad: 1, precio_venta: 280 },
+          { nombre_producto: 'Alfajor', descripcion_producto: 'Triple', cantidad: 30, precio_venta: 6.5 }] },
+      { id: 702, numero: 1, fecha: HACE6 + 'T11:00:00', motivo: 'Dinámica de redes',
+        entregado_a: '', costo: 12, valor_venta: 26, usuario_nombre: 'Caja', anulada: false,
+        promocion_detalles: [{ nombre_producto: 'Agua 600 ml', descripcion_producto: '', cantidad: 4, precio_venta: 6.5 }] },
+      { id: 703, numero: 2, fecha: HOY + 'T12:00:00', motivo: 'Error de prueba',
+        entregado_a: '', costo: 0, valor_venta: 0, usuario_nombre: 'Admin', anulada: true,
+        promocion_detalles: [{ nombre_producto: 'Alfajor', descripcion_producto: '', cantidad: 5, precio_venta: 6.5 }] },
+    ];
+    DATOS.ventas = [
+      { id: 1, fecha: HOY + 'T15:00:00', total: 55, anulada: false,
+        venta_detalles: [{ cantidad: 1 }] },
+      { id: 2, fecha: HACE6 + 'T15:00:00', total: 35, anulada: false,
+        venta_detalles: [{ cantidad: 2 }] },
+    ];
+
+    // 100 alumnos, para probar que el buscador reemplaza bien al combo
+    const NOMBRES = ['Juan','María','Carlos','Ana','Luis','Rosa','Pedro','Elena','Jorge','Sofía'];
+    const APELLIDOS = ['Mamani','Quispe','Flores','Gutiérrez','Vargas','Rojas','Choque','Aliaga','Pérez','Salazar'];
+    for (let i = 0; i < 100; i++) {
+      DATOS.alumnos.push({
+        id: i + 1,
+        codigo: 'ALU-' + String(i + 1).padStart(3, '0'),
+        nombre: `${NOMBRES[i % 10]} ${APELLIDOS[Math.floor(i / 10)]}`,
+        telefono: '591' + (70000000 + i),
+        foto_url: null, activo: true,
+      });
+    }
+    // Un nombre único, para probar la selección automática al guardar
+    DATOS.alumnos[0].nombre = 'Zacarías Únicoapellido';
+
+    // ---------- db falso (imita lo justo de Supabase, CON filtros) ----------
+    window.RPC = [];
+    window.RPC_DISPONIBLES = { siguiente_codigo: true };   // simula que el paso 18 ya corrió
+    window.CHOQUES = 0;          // cuántos inserts deben fallar por código repetido
+    const respuesta = (data, extra) => Promise.resolve({ data, error: null, ...extra });
+    const fallo = (msg, code) => Promise.resolve({ data: null, error: { message: msg, code } });
+
+    const cmpFecha = (a, b) => {
+      const ta = Date.parse(a), tb = Date.parse(b);
+      if (!Number.isNaN(ta) && !Number.isNaN(tb)) return ta - tb;
+      return String(a) < String(b) ? -1 : String(a) > String(b) ? 1 : 0;
+    };
+
+    const db = {
+      from(tabla) {
+        let filas = (DATOS[tabla] || []).slice();
+        let cuenta = false;
+        const val = (f, c) => String(f[c] ?? '');
+        const q = {
+          select(_cols, opt) { cuenta = !!(opt && opt.count); return q; },
+          eq(c, v)  { filas = filas.filter(f => String(f[c]) === String(v)); return q; },
+          // Postgres compara las marcas de tiempo como INSTANTES, no como texto:
+          // '2026-10-01T01:00+00:00' y '2026-09-30T21:00-04:00' son el mismo
+          // momento. Comparar cadenas aquí daría un resultado que la base real
+          // no daría, y la prueba mentiría.
+          gte(c, v) { filas = filas.filter(f => cmpFecha(val(f, c), v) >= 0); return q; },
+          lte(c, v) { filas = filas.filter(f => cmpFecha(val(f, c), v) <= 0); return q; },
+          like(c, v) { const re = new RegExp('^' + String(v).replace(/%/g, '.*') + '$');
+                       filas = filas.filter(f => re.test(val(f, c))); return q; },
+          in(c, vs)  { filas = filas.filter(f => vs.map(String).includes(val(f, c))); return q; },
+          order()   { return q; },
+          limit()   { return q; },
+          single()  { return filas.length
+                        ? respuesta(filas[0])
+                        : fallo('No rows found', 'PGRST116'); },
+          insert(d) {
+            window.RPC.push(['insert', tabla, d]);
+            // Simula que otra caja se adelantó y tomó ese código
+            if (window.CHOQUES > 0) {
+              window.CHOQUES--;
+              return Object.assign(
+                fallo('duplicate key value violates unique constraint "' + tabla + '_codigo_key"', '23505'),
+                { select: () => ({ single: () => fallo('duplicate key value violates unique constraint "' + tabla + '_codigo_key"', '23505') }) });
+            }
+            const fila = { id: Math.floor(Math.random() * 100000), ...d };
+            (DATOS[tabla] = DATOS[tabla] || []).push(fila);
+            const r = respuesta(fila);
+            r.select = () => ({ single: () => respuesta(fila), then: (x) => respuesta(fila).then(x) });
+            return r;
+          },
+          update(d) { window.RPC.push(['update', tabla, d]); return respuesta(d); },
+          upsert(d) { window.RPC.push(['upsert', tabla, d]); return respuesta(d); },
+          then(res) {
+            return respuesta(cuenta ? null : filas,
+              cuenta ? { count: filas.length } : {}).then(res);
+          },
+        };
+        return q;
+      },
+      rpc(nombre, args) {
+        window.RPC.push([nombre, args]);
+        if (nombre === 'inscripciones_por_vencer') return respuesta([]);
+        if (nombre === 'siguiente_codigo') {
+          // Si se "apagó", responde como Supabase cuando la función no existe
+          if (!window.RPC_DISPONIBLES.siguiente_codigo)
+            return fallo('Could not find the function public.siguiente_codigo', 'PGRST202');
+          const mayor = (DATOS[args.p_tabla] || [])
+            .filter(f => new RegExp('^' + args.p_prefijo + '-[0-9]+$').test(f.codigo || ''))
+            .reduce((m, f) => Math.max(m, parseInt(String(f.codigo).split('-')[1], 10) || 0), 0);
+          const n = mayor + 1;
+          return respuesta(args.p_prefijo + '-' + (n < 1000 ? String(n).padStart(3, '0') : String(n)));
+        }
+        return respuesta(1);
+      },
+    };
+
+    // ---------- lo que normalmente pone app.js ----------
+    const perfilActual = { nombre: 'Cajero de prueba', rol: 'Administrador' };
+    function puedeAccion() { return true; }
+    // Re-dibuja de verdad, como hace app.js: si no, los filtros del
+    // dashboard parecerían no funcionar cuando en la app sí funcionan.
+    function abrirModulo(n) {
+      window.ULTIMO_MODULO = n;
+      const cont = document.getElementById('contenido');
+      if (n === 'dashboard' && typeof cargarDashboard === 'function') return cargarDashboard(cont);
+      if (n === 'productos' && typeof cargarProductos === 'function') return cargarProductos(cont);
+      if (n === 'ventas'    && typeof cargarVentas === 'function')    return cargarVentas(cont);
+      if (n === 'promociones' && typeof cargarPromociones === 'function') return cargarPromociones(cont);
+    }
+  </script>
+
+  <script src="js/ui.js"></script>
+  <script src="js/dashboard.js"></script>
+  <script src="js/recibo.js"></script>
+  <script src="js/inscripciones.js"></script>
+  <script src="js/productos.js"></script>
+  <script src="js/ventas.js"></script>
+  <script src="js/promociones.js"></script>
+  <script src="js/catalogos.js"></script>
+  <script src="js/alumnos.js"></script>
+  <script src="js/pases.js"></script>
+  <script src="js/usuarios_config.js"></script>
+  <script src="js/reportes.js"></script>
+</body>
+</html>

@@ -761,7 +761,7 @@ tr:hover td { background: var(--negro-suave); }
 
   #areaRecibo {
     display: block;
-    width: 80mm; padding: 4mm;
+    width: 80mm; padding: 1mm 4mm 4mm;   /* poco aire arriba: el papel ya avanza solo */
     box-sizing: border-box;
     background: #fff; color: #000;
     font-family: Arial, Helvetica, sans-serif;
@@ -769,7 +769,7 @@ tr:hover td { background: var(--negro-suave); }
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
 
-  .r-logo    { display: block; width: 58mm; margin: 0 auto 3mm; }
+  .r-logo    { display: block; width: 42mm; margin: 0 auto 2mm; }
   .r-titulo  { text-align: center; font-weight: bold; font-size: 13px;
                text-transform: uppercase; letter-spacing: .5px; }
   .r-centro  { text-align: center; }
@@ -799,3 +799,9 @@ tr:hover td { background: var(--negro-suave); }
   /* Aire al final: el cortador necesita que el papel avance */
   .r-aire { height: 12mm; }
 }
+
+/* Botones de página (listas largas) */
+.paginas { display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+           gap: 10px; margin-top: 14px; }
+.paginas .btn { padding: 10px 16px; min-height: 44px; }
+.paginas .btn[disabled] { opacity: .4; cursor: not-allowed; }
