@@ -62,6 +62,8 @@ async function cargarVentas(contenido) {
                 <td>${v.metodo_pago}</td>
                 <td class="subtexto">${v.usuario_nombre || '—'}</td>
                 <td class="acciones">
+                  <button title="Imprimir recibo"
+                          onclick="imprimirVenta(${v.id})">🖨️<span class="solo-movil"> Recibo</span></button>
                   ${!v.anulada && puedeAccion('anular')
                     ? `<button title="Anular: devuelve el stock y quita el cobro" onclick="anularVenta(${v.id}, ${v.numero})">🚫</button>` : ''}
                   ${puedeAccion('eliminar')

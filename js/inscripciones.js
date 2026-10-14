@@ -78,6 +78,8 @@ async function cargarInscripciones(contenido) {
                 <td>${util.bs(saldo)}</td>
                 <td>${estado}</td>
                 <td class="acciones">
+                  <button title="Imprimir recibo"
+                          onclick="imprimirInscripcion(${i.id})">🖨️<span class="solo-movil"> Recibo</span></button>
                   ${puedeAnular && !i.anulada
                     ? `<button title="Anular: libera la plaza y conserva el pago (para quien se fue y vuelve con fechas nuevas)" onclick="anularInscripcion(${i.id})">🚫</button>` : ''}
                   ${puedeEliminar
