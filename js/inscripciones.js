@@ -52,16 +52,23 @@ async function cargarInscripciones(contenido) {
     ...clasesDe(i).map(c => `${c.disciplina} ${c.horario} ${c.instructor}`),
   ].join(' ').toLowerCase();
 
+  const hoy = util.hoy();
   const filas = (datos) => datos.map(i => {
             const pagado = pagadoPor[i.id] || 0;
             const saldo = Math.max(Number(i.total) - pagado, 0);
+            // Vencida: ya pasó su fecha de fin. No es un error ni hay que
+            // anularla: la mensualidad se usó y se pagó. Solo se avisa.
+            const vencida = !i.anulada && i.fecha_fin < hoy;
+            const porEmpezar = !i.anulada && i.fecha_inicio > hoy;
             const estado = i.anulada
               ? '<span class="pill pill-rojo">Anulada</span>'
-              : saldo <= 0 ? '<span class="pill pill-verde">Pagado</span>'
-              : pagado > 0 ? '<span class="pill pill-amarillo">Parcial</span>'
-              : '<span class="pill pill-rojo">Pendiente</span>';
+              : (saldo <= 0 ? '<span class="pill pill-verde">Pagado</span>'
+                 : pagado > 0 ? '<span class="pill pill-amarillo">Parcial</span>'
+                 : '<span class="pill pill-rojo">Pendiente</span>') +
+                (vencida ? ' <span class="pill pill-naranja">Vencida</span>'
+                 : porEmpezar ? ' <span class="pill pill-azul">Empieza el ' + util.fecha(i.fecha_inicio) + '</span>' : '');
             return `
-              <tr style="${i.anulada ? 'opacity:.5' : ''}">
+              <tr class="${vencida ? 'fila-vencida' : ''}" style="${i.anulada ? 'opacity:.5' : ''}">
                 <td>${i.numero}</td>
                 <td>${util.fecha(util.dia(i.fecha))}</td>
                 <td><strong>${i.alumnos?.nombre || '—'}</strong></td>
@@ -73,7 +80,7 @@ async function cargarInscripciones(contenido) {
                         c.instructor ? ' · ' + c.instructor : ''}</span>` : ''}
                     </div>`).join('') ||
                   '<span class="subtexto">—</span>'}</div></td>
-                <td>${util.fecha(i.fecha_inicio)} → ${util.fecha(i.fecha_fin)}</td>
+                <td${vencida ? ' class="texto-vencido"' : ''}>${util.fecha(i.fecha_inicio)} → ${util.fecha(i.fecha_fin)}</td>
                 <td>${util.bs(i.total)}</td>
                 <td>${util.bs(pagado)}</td>
                 <td>${util.bs(saldo)}</td>
@@ -81,8 +88,8 @@ async function cargarInscripciones(contenido) {
                 <td class="acciones">
                   <button title="Imprimir recibo"
                           onclick="imprimirInscripcion(${i.id})">🖨️<span class="solo-movil"> Recibo</span></button>
-                  ${puedeAnular && !i.anulada
-                    ? `<button title="Anular: libera la plaza y conserva el pago (para quien se fue y vuelve con fechas nuevas)" onclick="anularInscripcion(${i.id})">🚫</button>` : ''}
+                  ${puedeAnular && !i.anulada && !vencida
+                    ? `<button title="Anular: solo si fue un error o el alumno se retiró antes de que venza" onclick="anularInscripcion(${i.id})">🚫</button>` : ''}
                   ${puedeEliminar
                     ? `<button title="Eliminar definitivamente" onclick="eliminarInscripcion(${i.id}, ${i.numero})">🗑️</button>` : ''}
                 </td>
@@ -167,12 +174,18 @@ async function cargarInscripciones(contenido) {
 
 // ---------------------- NUEVA INSCRIPCIÓN ----------------------
 
+let insVigentes = [];   // inscripciones que no vencieron, para saber quién renueva
+
 async function nuevaInscripcion() {
-  const [alumnos, disciplinas, horarios] = await Promise.all([
+  await recalcularCupos();   // que los lugares libres estén al día
+  const [alumnos, disciplinas, horarios, vigentes] = await Promise.all([
     db.from('alumnos').select('id, nombre, codigo, telefono, foto_url').eq('activo', true).order('nombre'),
     db.from('disciplinas').select('*').eq('activo', true).order('nombre'),
     db.from('horarios').select('*, instructores(nombre)').eq('activo', true).order('id'),
+    db.from('inscripciones').select('alumno_id, fecha_inicio, fecha_fin, inscripcion_detalles(horario_id)')
+      .eq('anulada', false).gte('fecha_fin', util.hoy()),
   ]);
+  insVigentes = vigentes.data || [];
   insCatalogo = { disciplinas: disciplinas.data || [], horarios: horarios.data || [] };
   insAlumnos = alumnos.data || [];
   insDetalles = [];
@@ -199,6 +212,7 @@ async function nuevaInscripcion() {
              onchange="sincronizarFechaCobro()"></div>
       <div class="campo"><label>Fin (vence)</label><input type="date" name="fecha_fin" required value="${util.diaLocal(fin)}"></div>
     </div>
+    <div id="avisoRenovacion"></div>
 
     <h3 style="font-size:18px;margin:6px 0 10px">Disciplinas y horarios</h3>
     <div class="detalle-linea">
@@ -365,11 +379,56 @@ function elegirAlumnoIns(id) {
       </span>
       <button type="button" class="btn btn-oscuro" onclick="cambiarAlumnoIns()">Cambiar</button>
     </div>`;
+  avisoRenovacionIns();
+  if (document.getElementById('selDisciplina')?.value) filtrarHorariosIns();
+}
+
+/** Horarios en los que el alumno elegido ya tiene un lugar vigente. */
+function horariosDelAlumnoIns() {
+  const id = Number(document.getElementById('insAlumnoId')?.value || 0);
+  const set = new Set();
+  insVigentes.filter(i => i.alumno_id === id)
+    .forEach(i => (i.inscripcion_detalles || []).forEach(d => set.add(d.horario_id)));
+  return set;
+}
+
+/**
+ * Si el alumno todavía tiene una mensualidad vigente, lo dice y ofrece
+ * empezar la nueva al día siguiente de que venza (renovar por adelantado).
+ */
+function avisoRenovacionIns() {
+  const caja = document.getElementById('avisoRenovacion');
+  if (!caja) return;
+  const id = Number(document.getElementById('insAlumnoId')?.value || 0);
+  const suyas = insVigentes.filter(i => i.alumno_id === id);
+  if (!suyas.length) { caja.innerHTML = ''; return; }
+  const vence = suyas.map(i => i.fecha_fin).sort().pop();
+  const sigue = new Date(vence + 'T12:00:00'); sigue.setDate(sigue.getDate() + 1);
+  const desde = util.diaLocal(sigue);
+  caja.innerHTML = `
+    <div class="aviso-renovacion">
+      <span>🔁 Tiene mensualidad vigente hasta el <strong>${util.fecha(vence)}</strong>.
+        Para renovar en el mismo horario, la nueva empieza el <strong>${util.fecha(desde)}</strong>.</span>
+      <button type="button" class="btn btn-oscuro" onclick="renovarDesdeIns('${desde}')">Empezar el ${util.fecha(desde)}</button>
+    </div>`;
+}
+
+/** Pone las fechas de una renovación: desde el día siguiente al vencimiento, un mes. */
+function renovarDesdeIns(desde) {
+  const f = document.getElementById('formModal');
+  if (!f) return;
+  const fin = new Date(desde + 'T12:00:00'); fin.setMonth(fin.getMonth() + 1); fin.setDate(fin.getDate() - 1);
+  f.fecha_inicio.value = desde;
+  f.fecha_fin.value = util.diaLocal(fin);
+  sincronizarFechaCobro();
+  notificar(`Fechas puestas: ${util.fecha(desde)} → ${util.fecha(util.diaLocal(fin))}.`);
 }
 
 /** Vuelve al buscador para elegir otro alumno. */
 function cambiarAlumnoIns() {
   document.getElementById('insAlumnoId').value = '';
+  const av = document.getElementById('avisoRenovacion');
+  if (av) av.innerHTML = '';
   document.getElementById('insElegido').innerHTML = '';
   const buscador = document.getElementById('insBuscador');
   if (buscador) buscador.hidden = false;
@@ -381,12 +440,15 @@ function cambiarAlumnoIns() {
 function filtrarHorariosIns() {
   const disId = Number(document.getElementById('selDisciplina').value);
   const sel = document.getElementById('selHorario');
+  const suyos = horariosDelAlumnoIns();   // si renueva, su lugar ya es suyo
   sel.innerHTML = '<option value="">—</option>' + insCatalogo.horarios
     .filter(h => h.disciplina_id === disId)
     .map(h => {
       const disp = Math.max(h.cupo - h.inscritos, 0);
-      return `<option value="${h.id}" ${disp <= 0 ? 'disabled' : ''}>
-        ${h.dias} ${h.hora_inicio} · ${h.instructores?.nombre || ''} · ${disp} libres${disp <= 0 ? ' (LLENO)' : ''}</option>`;
+      const renueva = suyos.has(h.id);
+      return `<option value="${h.id}" ${disp <= 0 && !renueva ? 'disabled' : ''}>
+        ${h.dias} ${h.hora_inicio} · ${h.instructores?.nombre || ''} · ${
+          renueva ? 'ya tiene su lugar (renueva)' : `${disp} libres${disp <= 0 ? ' (LLENO)' : ''}`}</option>`;
     }).join('');
 
   // Cargar el precio de lista de la disciplina; se puede cambiar para dar descuento
@@ -507,10 +569,13 @@ async function eliminarInscripcion(id, numero) {
 async function anularInscripcion(id) {
   if (!confirmar(
     '¿Anular esta inscripción?\n\n' +
-    '• Se libera la plaza en la clase.\n' +
-    '• El dinero que ya pagó SE CONSERVA en los reportes.\n' +
-    '• Podrás hacerle una inscripción nueva con otras fechas.\n\n' +
-    'Es lo correcto cuando el alumno deja de venir y después vuelve.')) return;
+    'Úsalo solo si:\n' +
+    '• te equivocaste al registrarla, o\n' +
+    '• el alumno se retiró ANTES de que venza y quieres liberar su lugar ya.\n\n' +
+    'Para renovar NO hace falta anular: haz una inscripción nueva que empiece\n' +
+    'el día después del vencimiento. Y cuando una mensualidad vence, su lugar\n' +
+    'se libera solo.\n\n' +
+    'El dinero que ya pagó SE CONSERVA en los reportes.')) return;
   const r = await db.rpc('anular_inscripcion', { p_inscripcion_id: id, p_usuario_nombre: perfilActual?.nombre || '' });
   if (r.error) { notificar(r.error.message, true); return; }
   notificar('Inscripción anulada. Plaza liberada y el pago se conservó.');

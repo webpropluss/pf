@@ -10,6 +10,7 @@ function estadoHorario(h) {
 }
 
 async function cargarHorarios(contenido) {
+  await recalcularCupos();
   const horarios = verificar(await db.from('horarios')
     .select('*, disciplinas(nombre), instructores(nombre)').order('id'));
 
@@ -20,7 +21,7 @@ async function cargarHorarios(contenido) {
     </div>
     <div class="panel">
       <table>
-        <thead><tr><th>Disciplina</th><th>Días</th><th>Hora</th><th>Sala</th><th>Instructor</th><th>Cupo</th><th>Inscritos</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Disciplina</th><th>Días</th><th>Hora</th><th>Sala</th><th>Instructor</th><th>Cupo</th><th>Ocupados</th><th>Estado</th><th></th></tr></thead>
         <tbody>
           ${horarios.map(h => `
             <tr>
@@ -41,6 +42,9 @@ async function cargarHorarios(contenido) {
             </tr>`).join('')}
         </tbody>
       </table>
+      <p class="subtexto" style="margin-top:10px"><strong>Ocupados</strong> = alumnos con
+        inscripción vigente en esa clase. Quien renueva sigue ocupando un solo lugar, y quien
+        no renueva libera el suyo al día siguiente de su vencimiento.</p>
     </div>`;
 }
 

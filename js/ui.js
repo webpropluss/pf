@@ -365,3 +365,13 @@ async function previsualizarFoto(input, idAviso, idVista, maxLado = 500) {
     if (aviso) aviso.textContent = e.message;
   }
 }
+
+/**
+ * Pone al día los lugares ocupados de todos los horarios: un lugar es un
+ * ALUMNO con inscripción vigente. Así, el día después de que vence una
+ * mensualidad sin renovar, ese lugar se libera solo.
+ * Si todavía no se ejecutó el paso 23, no hace nada (y no molesta).
+ */
+async function recalcularCupos() {
+  try { await db.rpc('recalcular_cupos'); } catch (e) { /* sin el paso 23 */ }
+}

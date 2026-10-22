@@ -818,3 +818,20 @@ tr:hover td { background: var(--negro-suave); }
 table tr.fila-total td { border-top: 2px solid var(--borde); }
 details.detalle-instructor > summary { cursor: pointer; padding: 4px 0; list-style-position: inside; }
 details.detalle-instructor[open] > summary { margin-bottom: 12px; }
+
+/* Inscripciones · vencidas en naranja y renovación (v35) */
+.pill-naranja { background: rgba(255,140,0,.16); color: #ff9f2e; }
+.pill-azul    { background: rgba(80,160,255,.15); color: #7cb8ff; }
+tr.fila-vencida td { background: rgba(255,140,0,.06); }
+tr.fila-vencida td:first-child { box-shadow: inset 3px 0 0 #ff9f2e; }
+.texto-vencido { color: #ff9f2e; }
+@media (max-width: 760px) {
+  table tr.fila-vencida { border-left-color: #ff9f2e; background: rgba(255,140,0,.05); }
+  tr.fila-vencida td, tr.fila-vencida td:first-child { background: transparent; box-shadow: none; }
+}
+.aviso-renovacion {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px; justify-content: space-between;
+  background: rgba(80,160,255,.08); border: 1px solid rgba(80,160,255,.35);
+  border-radius: 8px; padding: 10px 12px; margin: -4px 0 14px; font-size: 14px;
+}
+.aviso-renovacion .btn { flex: 0 0 auto; }
