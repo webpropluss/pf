@@ -6,6 +6,10 @@
 // empezó la mensualidad), no por el día en que se cargaron al
 // sistema. El dinero se cuenta por la fecha del cobro, que se
 // elige al inscribir y por defecto es la fecha de inicio.
+//
+// INGRESOS = cobros de inscripciones + pases del día + la GANANCIA
+// de los productos vendidos. De una venta solo cuenta lo que se ganó:
+// el resto es la plata que vuelve a la mercadería, no es ingreso.
 // ============================================================
 
 // Período que se está viendo. Al abrir: hoy.
@@ -99,22 +103,25 @@ async function cargarDashboard(contenido) {
   }
 
   // Consultas en paralelo
-  const [alumnos, pagos, nuevasIns, insAbiertas, porVencer, pases, ventas, promos, pagosGrafico] =
+  const [alumnos, pagos, nuevasIns, insAbiertas, porVencer, pases, ventas, promos, pagosGrafico, ventasGrafico] =
     await Promise.all([
       db.from('alumnos').select('id', { count: 'exact', head: true }).eq('activo', true),
-      db.from('pagos').select('monto, fecha').gte('fecha', desdeTS).lte('fecha', hastaTS),
+      db.from('pagos').select('monto, fecha, inscripcion_id, pase_dia_id, venta_id')
+        .gte('fecha', desdeTS).lte('fecha', hastaTS),
       // ← las inscripciones se cuentan por CUÁNDO EMPIEZA la mensualidad
       db.from('inscripciones').select('id, total, fecha_inicio')
         .eq('anulada', false).gte('fecha_inicio', P.desde).lte('fecha_inicio', P.hasta),
       db.from('inscripciones').select('id, total').eq('anulada', false),
       db.rpc('inscripciones_por_vencer', { p_dias: diasAviso }),
       db.from('pases_dia').select('monto').gte('fecha', P.desde).lte('fecha', P.hasta),
-      db.from('ventas').select('total, venta_detalles(cantidad)')
+      db.from('ventas').select('total, costo, ganancia, venta_detalles(cantidad)')
         .eq('anulada', false).gte('fecha', desdeTS).lte('fecha', hastaTS),
       // Regalos: salen del stock pero NO son ingreso, por eso van aparte
       db.from('promociones').select('costo, valor_venta, promocion_detalles(cantidad)')
         .eq('anulada', false).gte('fecha', desdeTS).lte('fecha', hastaTS),
-      db.from('pagos').select('monto, fecha')
+      db.from('pagos').select('monto, fecha, venta_id')
+        .gte('fecha', util.desdeISO(graDesde)).lte('fecha', hastaTS),
+      db.from('ventas').select('ganancia, fecha').eq('anulada', false)
         .gte('fecha', util.desdeISO(graDesde)).lte('fecha', hastaTS),
     ]);
 
@@ -143,7 +150,13 @@ async function cargarDashboard(contenido) {
     });
   }
 
-  const ingresos = (pagos.data || []).reduce((s, p) => s + Number(p.monto), 0);
+  // Cobros que entraron a caja, separados por su origen. El cobro de una
+  // venta NO va aquí: de la venta se suma solo la ganancia (más abajo).
+  const cobros = pagos.data || [];
+  const cobrosIns   = cobros.filter(p => p.inscripcion_id);
+  const cobrosPases = cobros.filter(p => p.pase_dia_id);
+  const ingInscripciones = cobrosIns.reduce((s, p) => s + Number(p.monto), 0);
+  const ingPases         = cobrosPases.reduce((s, p) => s + Number(p.monto), 0);
 
   // Inscripciones que EMPIEZAN en el período
   const nInscripciones = (nuevasIns.data || []).length;
@@ -156,6 +169,12 @@ async function cargarDashboard(contenido) {
   // Venta de productos
   const nVentas = (ventas.data || []).length;
   const bsVentas = (ventas.data || []).reduce((s, v) => s + Number(v.total), 0);
+  const costoVentas    = (ventas.data || []).reduce((s, v) => s + Number(v.costo || 0), 0);
+  const gananciaVentas = (ventas.data || []).reduce((s, v) => s + Number(v.ganancia || 0), 0);
+
+  // El ingreso del período: inscripciones + pases + SOLO la ganancia de productos
+  const ingresos = ingInscripciones + ingPases + gananciaVentas;
+  const verGanancia = puedeAccion('verGanancias');
   const artVendidos = (ventas.data || [])
     .reduce((s, v) => s + (v.venta_detalles || []).reduce((t, d) => t + d.cantidad, 0), 0);
 
@@ -206,9 +225,14 @@ async function cargarDashboard(contenido) {
     }
   }
 
-  (pagosGrafico.data || []).forEach(p => {
+  // Mismo criterio que la tarjeta: cobros sin las ventas + ganancia de las ventas
+  (pagosGrafico.data || []).filter(p => !p.venta_id).forEach(p => {
     const c = cubos.find(x => x.clave === cubeta(util.dia(p.fecha)));
     if (c) c.monto += Number(p.monto);
+  });
+  (ventasGrafico.data || []).forEach(v => {
+    const c = cubos.find(x => x.clave === cubeta(util.dia(v.fecha)));
+    if (c) c.monto += Number(v.ganancia || 0);
   });
   const max = Math.max(...cubos.map(c => c.monto), 1);
   // Con muchas barras no cabe el importe encima de cada una. En un
@@ -244,7 +268,11 @@ async function cargarDashboard(contenido) {
       <div class="tarjeta acento">
         <div class="etiqueta">Ingresos del período</div>
         <div class="valor">${util.bs(ingresos)}</div>
-        <div class="subtexto">${(pagos.data || []).length} cobro${(pagos.data || []).length === 1 ? '' : 's'}</div>
+        <div class="desglose-ingresos">
+          <span>Inscripciones <strong>${util.bs(ingInscripciones)}</strong></span>
+          <span>Pases del día <strong>${util.bs(ingPases)}</strong></span>
+          <span>Ganancia productos <strong>${util.bs(gananciaVentas)}</strong></span>
+        </div>
       </div>
       <div class="tarjeta acento">
         <div class="etiqueta">Mensualidades que empiezan</div>
@@ -261,6 +289,12 @@ async function cargarDashboard(contenido) {
         <div class="valor">${artVendidos}</div>
         <div class="subtexto">${nVentas} venta${nVentas === 1 ? '' : 's'} · ${util.bs(bsVentas)}</div>
       </div>
+      ${verGanancia ? `
+      <div class="tarjeta acento">
+        <div class="etiqueta">Ganancia en productos</div>
+        <div class="valor" style="color:${gananciaVentas < 0 ? '#ff8a8f' : 'var(--verde)'}">${util.bs(gananciaVentas)}</div>
+        <div class="subtexto">vendido ${util.bs(bsVentas)} − costo ${util.bs(costoVentas)}</div>
+      </div>` : ''}
       <div class="tarjeta acento">
         <div class="etiqueta">Gasto promocional</div>
         <div class="valor">${util.bs(gastoPromo)}</div>
@@ -281,6 +315,7 @@ async function cargarDashboard(contenido) {
 
     <div class="panel">
       <h3>Ingresos · ${grano === 'mes' ? 'mes a mes' : grano === 'semana' ? 'semana a semana' : 'día por día'}</h3>
+      <p class="subtexto" style="margin:-6px 0 10px">Inscripciones + pases del día + ganancia de productos.</p>
       ${graDesde !== P.desde
         ? `<p class="subtexto" style="margin:-6px 0 10px">Se muestran los 7 días
              hasta el ${util.fecha(P.hasta)}, para que se pueda comparar.</p>`

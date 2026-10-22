@@ -805,3 +805,11 @@ tr:hover td { background: var(--negro-suave); }
            gap: 10px; margin-top: 14px; }
 .paginas .btn { padding: 10px 16px; min-height: 44px; }
 .paginas .btn[disabled] { opacity: .4; cursor: not-allowed; }
+
+/* Dashboard · de dónde sale el ingreso (v33) */
+.desglose-ingresos { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
+.desglose-ingresos span {
+  display: flex; justify-content: space-between; gap: 8px;
+  font-size: 12.5px; color: var(--texto-suave);
+}
+.desglose-ingresos strong { color: var(--texto); font-weight: 600; white-space: nowrap; }
