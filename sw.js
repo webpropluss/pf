@@ -9,7 +9,7 @@
 
 // ⚠ Al subir cambios al sitio, sube este número (v2, v3...) para
 //    forzar que todos los celulares tomen la versión nueva.
-const VERSION = 'primefit-v33';
+const VERSION = 'primefit-v34';
 
 // Archivos base de la app (se guardan al instalar)
 const ARCHIVOS = [
@@ -35,6 +35,8 @@ const ARCHIVOS = [
   './js/productos.js',
   './js/promociones.js',
   './js/reportes.js',
+  './js/reporte_ventas.js',
+  './js/pago_instructores.js',
   './js/usuarios_config.js',
   './img/logo_black.png',
   './img/logo_recibo.png',

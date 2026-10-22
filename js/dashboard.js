@@ -175,6 +175,14 @@ async function cargarDashboard(contenido) {
   // El ingreso del período: inscripciones + pases + SOLO la ganancia de productos
   const ingresos = ingInscripciones + ingPases + gananciaVentas;
   const verGanancia = puedeAccion('verGanancias');
+
+  // Ingreso neto: lo de arriba menos lo que les toca a los instructores
+  // por su porcentaje (mismo período, mismos cobros). Solo administrador.
+  let pagoInstr = null;
+  if (verGanancia) {
+    try { pagoInstr = (await calcularPagoInstructores(P.desde, P.hasta)).totalPago; }
+    catch (e) { pagoInstr = null; }
+  }
   const artVendidos = (ventas.data || [])
     .reduce((s, v) => s + (v.venta_detalles || []).reduce((t, d) => t + d.cantidad, 0), 0);
 
@@ -274,6 +282,15 @@ async function cargarDashboard(contenido) {
           <span>Ganancia productos <strong>${util.bs(gananciaVentas)}</strong></span>
         </div>
       </div>
+      ${pagoInstr != null ? `
+      <div class="tarjeta acento">
+        <div class="etiqueta">Ingreso neto del período</div>
+        <div class="valor" style="color:${ingresos - pagoInstr < 0 ? '#ff8a8f' : 'var(--verde)'}">${util.bs(ingresos - pagoInstr)}</div>
+        <div class="desglose-ingresos">
+          <span>Ingresos <strong>${util.bs(ingresos)}</strong></span>
+          <span>− Pago a instructores <strong>${util.bs(pagoInstr)}</strong></span>
+        </div>
+      </div>` : ''}
       <div class="tarjeta acento">
         <div class="etiqueta">Mensualidades que empiezan</div>
         <div class="valor">${nInscripciones}</div>

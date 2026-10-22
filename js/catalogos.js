@@ -102,7 +102,7 @@ async function cargarInstructores(contenido) {
     </div>
     <div class="panel">
       <table>
-        <thead><tr><th>Código</th><th>Nombre</th><th>Teléfono</th><th>Especialidad</th><th>Clases asignadas</th><th>Estado</th><th></th></tr></thead>
+        <thead><tr><th>Código</th><th>Nombre</th><th>Teléfono</th><th>Especialidad</th><th>Porcentaje</th><th>Clases asignadas</th><th>Estado</th><th></th></tr></thead>
         <tbody>
           ${(instructores.data || []).map(i => `
             <tr>
@@ -110,6 +110,9 @@ async function cargarInstructores(contenido) {
               <td><strong>${i.nombre}</strong></td>
               <td>${telefonoMostrar(i.telefono)}</td>
               <td>${i.especialidad || '—'}</td>
+              <td>${i.porcentaje != null && Number(i.porcentaje) > 0
+                    ? `<strong>${Number(i.porcentaje)}%</strong>`
+                    : '<span class="pill pill-amarillo">Sin definir</span>'}</td>
               <td>${clasesPor[i.id] || 0}</td>
               <td>${i.activo ? '<span class="pill pill-verde">Activo</span>' : '<span class="pill pill-rojo">Inactivo</span>'}</td>
               <td class="acciones">
@@ -126,7 +129,7 @@ async function cargarInstructores(contenido) {
 async function dialogoInstructor(id) {
   const i = id
     ? verificar(await db.from('instructores').select('*').eq('id', id).single())
-    : { nombre: '', telefono: '', especialidad: '' };
+    : { nombre: '', telefono: '', especialidad: '', porcentaje: '' };
 
   abrirModal(id ? 'Editar instructor' : 'Nuevo instructor', `
     <div class="campo"><label>Nombre</label><input name="nombre" required value="${i.nombre}"></div>
@@ -134,11 +137,19 @@ async function dialogoInstructor(id) {
       <div class="campo"><label>Celular</label>${campoTelefono('telefono', i.telefono, false)}</div>
       <div class="campo"><label>Especialidad</label><input name="especialidad" value="${i.especialidad || ''}"></div>
     </div>
+    <div class="campo"><label>Porcentaje del instructor (%)</label>
+      <input type="number" name="porcentaje" min="0" max="100" step="0.5" placeholder="Ej. 50"
+             value="${i.porcentaje ?? ''}" oninput="avisoPorcentaje(this)">
+      <span class="subtexto" id="avisoPorcentaje">Parte de lo cobrado por sus clases
+        (inscripciones y pases del día) que le corresponde a él.</span></div>
   `, async (form) => {
+    const pct = form.porcentaje.value === '' ? 0 : Number(form.porcentaje.value);
+    if (isNaN(pct) || pct < 0 || pct > 100) throw new Error('El porcentaje va de 0 a 100.');
     const datos = {
       nombre: form.nombre.value.trim(),
       telefono: validarTelefono(form.telefono.value, false),
       especialidad: form.especialidad.value.trim(),
+      porcentaje: pct,
     };
     if (id) verificar(await db.from('instructores').update(datos).eq('id', id));
     else {
@@ -147,6 +158,21 @@ async function dialogoInstructor(id) {
     notificar('Instructor guardado.');
     abrirModulo('instructores');
   });
+  avisoPorcentaje(document.querySelector('#formModal [name="porcentaje"]'));
+}
+
+/** Muestra cómo se reparte cada Bs. 100 mientras se escribe el porcentaje. */
+function avisoPorcentaje(campo) {
+  const aviso = document.getElementById('avisoPorcentaje');
+  if (!campo || !aviso || campo.value === '') return;
+  const p = Number(campo.value);
+  if (isNaN(p) || p < 0 || p > 100) {
+    aviso.innerHTML = '<span style="color:#ff8a8f">Debe estar entre 0 y 100.</span>';
+    return;
+  }
+  aviso.innerHTML = `De cada <strong>Bs. 100</strong> cobrados por sus clases:
+    <strong>${util.bs(p)}</strong> para el instructor y
+    <strong style="color:var(--verde)">${util.bs(100 - p)}</strong> para Prime Fit.`;
 }
 
 /** Elimina el instructor si no tiene clases asignadas. */

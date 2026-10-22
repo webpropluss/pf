@@ -813,3 +813,8 @@ tr:hover td { background: var(--negro-suave); }
   font-size: 12.5px; color: var(--texto-suave);
 }
 .desglose-ingresos strong { color: var(--texto); font-weight: 600; white-space: nowrap; }
+
+/* Reportes · fila de totales y detalle desplegable (v34) */
+table tr.fila-total td { border-top: 2px solid var(--borde); }
+details.detalle-instructor > summary { cursor: pointer; padding: 4px 0; list-style-position: inside; }
+details.detalle-instructor[open] > summary { margin-bottom: 12px; }

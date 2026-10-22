@@ -22,6 +22,8 @@ const modulos = {
   productos:     { titulo: 'Productos',     cargar: cargarProductos },
   promociones:   { titulo: 'Promociones',   cargar: cargarPromociones },
   reportes:      { titulo: 'Reportes',      cargar: cargarReportes },
+  reporteventas: { titulo: 'Reporte de ventas', cargar: cargarReporteVentas },
+  pagoinstructores: { titulo: 'Pago a instructores', cargar: cargarPagoInstructores },
   usuarios:      { titulo: 'Usuarios',      cargar: cargarUsuarios },
   configuracion: { titulo: 'Configuración', cargar: cargarConfiguracion },
 };
@@ -88,7 +90,10 @@ function modulosPermitidos(rol) {
   const clave = Object.keys(PERMISOS).find(k => k.toLowerCase() === buscado);
   if (clave) return PERMISOS[clave];
   // Recepción, instructores y cualquier otro rol: todo menos lo del administrador
-  return Object.keys(modulos).filter(m => !['usuarios', 'configuracion'].includes(m));
+  // Los reportes de dinero del negocio (costos, ganancias, pagos a
+  // instructores) también son solo del administrador.
+  return Object.keys(modulos).filter(m =>
+    !['usuarios', 'configuracion', 'reporteventas', 'pagoinstructores'].includes(m));
 }
 
 /** ¿Este rol puede entrar a este módulo? */
