@@ -7,7 +7,15 @@
 // ============================================================
 
 const util = {
-  bs: (n) => 'Bs. ' + Number(n || 0).toFixed(2),
+  // Montos al estilo boliviano: punto para los miles, coma para los
+  // centavos → "Bs. 1.290,00". Se arma a mano (no con toLocaleString)
+  // para que salga igual en cualquier teléfono o navegador.
+  bs: (n) => {
+    const v = Number(n || 0);
+    const [ent, dec] = Math.abs(v).toFixed(2).split('.');
+    const miles = ent.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return 'Bs. ' + (v < 0 && Number(ent + dec) !== 0 ? '-' : '') + miles + ',' + dec;
+  },
   fecha: (f) => f ? new Date(f + (String(f).length === 10 ? 'T00:00:00' : '')).toLocaleDateString('es-BO') : '',
 
   // ---------- FECHAS EN LA HORA DE AQUÍ ----------

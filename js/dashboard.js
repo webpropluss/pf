@@ -92,18 +92,8 @@ async function cargarDashboard(contenido) {
   const plantilla = C.mensaje_whatsapp ||
     'Hola {nombre} 👋 Te saludamos de Prime Fit 🥊. Tu mensualidad vence el {fecha}. ¡Renueva a tiempo! 💪';
 
-  // ---- Gráfico: se agrupa según lo largo que sea el período, para que
-  //      en el teléfono nunca queden 31 barritas ilegibles ----
-  const nDias = diasDelPeriodo(P);
-  const grano = nDias <= 14 ? 'dia' : nDias <= 92 ? 'semana' : 'mes';
-  let graDesde = P.desde;
-  if (grano === 'dia' && nDias < 7) {   // "Hoy" solo sería una barra
-    const f = new Date(P.hasta + 'T12:00:00'); f.setDate(f.getDate() - 6);
-    graDesde = util.diaLocal(f);
-  }
-
   // Consultas en paralelo
-  const [alumnos, pagos, nuevasIns, insAbiertas, porVencer, pases, ventas, promos, pagosGrafico, ventasGrafico] =
+  const [alumnos, pagos, nuevasIns, insAbiertas, porVencer, pases, ventas, promos] =
     await Promise.all([
       db.from('alumnos').select('id', { count: 'exact', head: true }).eq('activo', true),
       db.from('pagos').select('monto, fecha, inscripcion_id, pase_dia_id, venta_id')
@@ -119,10 +109,6 @@ async function cargarDashboard(contenido) {
       // Regalos: salen del stock pero NO son ingreso, por eso van aparte
       db.from('promociones').select('costo, valor_venta, promocion_detalles(cantidad)')
         .eq('anulada', false).gte('fecha', desdeTS).lte('fecha', hastaTS),
-      db.from('pagos').select('monto, fecha, venta_id')
-        .gte('fecha', util.desdeISO(graDesde)).lte('fecha', hastaTS),
-      db.from('ventas').select('ganancia, fecha').eq('anulada', false)
-        .gte('fecha', util.desdeISO(graDesde)).lte('fecha', hastaTS),
     ]);
 
   // ---- Datos extra de los avisos: foto del alumno y su clase ----
@@ -206,48 +192,6 @@ async function cargarDashboard(contenido) {
     });
   }
 
-  // ---- Barras del gráfico ----
-  // A qué barra pertenece una fecha, según el grano elegido
-  const cubeta = (iso) => {
-    if (grano === 'mes') return iso.slice(0, 7);
-    if (grano === 'dia') return iso.slice(0, 10);
-    const f = new Date(iso.slice(0, 10) + 'T12:00:00');       // semana: va al lunes
-    f.setDate(f.getDate() - ((f.getDay() + 6) % 7));
-    return util.diaLocal(f);
-  };
-
-  const cubos = [];
-  const fin = new Date(P.hasta + 'T12:00:00');
-  if (grano === 'mes') {
-    const ini = new Date(graDesde + 'T12:00:00'); ini.setDate(1);
-    for (let f = new Date(ini); f <= fin; f.setMonth(f.getMonth() + 1)) {
-      cubos.push({ clave: util.diaLocal(f).slice(0, 7), monto: 0,
-        etiqueta: f.toLocaleDateString('es-BO', { month: 'short' }) });
-    }
-  } else {
-    const paso = grano === 'semana' ? 7 : 1;
-    const ini = new Date(cubeta(graDesde) + 'T12:00:00');
-    for (let f = new Date(ini); f <= fin; f.setDate(f.getDate() + paso)) {
-      cubos.push({ clave: util.diaLocal(f), monto: 0,
-        etiqueta: f.toLocaleDateString('es-BO', { day: 'numeric', month: 'numeric' }) });
-    }
-  }
-
-  // Mismo criterio que la tarjeta: cobros sin las ventas + ganancia de las ventas
-  (pagosGrafico.data || []).filter(p => !p.venta_id).forEach(p => {
-    const c = cubos.find(x => x.clave === cubeta(util.dia(p.fecha)));
-    if (c) c.monto += Number(p.monto);
-  });
-  (ventasGrafico.data || []).forEach(v => {
-    const c = cubos.find(x => x.clave === cubeta(util.dia(v.fecha)));
-    if (c) c.monto += Number(v.ganancia || 0);
-  });
-  const max = Math.max(...cubos.map(c => c.monto), 1);
-  // Con muchas barras no cabe el importe encima de cada una. En un
-  // teléfono deja de caber muchísimo antes: a 320 px, con más de 4
-  // barras, un "Bs. 150.00" ensancha el gráfico y rompe la pantalla.
-  const compacto = cubos.length > 10 || (window.innerWidth < 560 && cubos.length > 4);
-
   const chip = (modo, texto) =>
     `<button type="button" class="chip-periodo ${P.modo === modo ? 'activo' : ''}"
              data-modo="${modo}" onclick="dashFiltro('${modo}')">${texto}</button>`;
@@ -327,25 +271,6 @@ async function cargarDashboard(contenido) {
         <div class="etiqueta">Pagos pendientes</div>
         <div class="valor">${pendientes}</div>
         <div class="subtexto">${util.bs(bsPendiente)} por cobrar</div>
-      </div>
-    </div>
-
-    <div class="panel">
-      <h3>Ingresos · ${grano === 'mes' ? 'mes a mes' : grano === 'semana' ? 'semana a semana' : 'día por día'}</h3>
-      <p class="subtexto" style="margin:-6px 0 10px">Inscripciones + pases del día + ganancia de productos.</p>
-      ${graDesde !== P.desde
-        ? `<p class="subtexto" style="margin:-6px 0 10px">Se muestran los 7 días
-             hasta el ${util.fecha(P.hasta)}, para que se pueda comparar.</p>`
-        : grano === 'semana'
-        ? `<p class="subtexto" style="margin:-6px 0 10px">Cada barra es una semana;
-             abajo va el lunes con que empieza.</p>` : ''}
-      <div class="grafico ${compacto ? 'compacto' : ''}">
-        ${cubos.map(c => `
-          <div class="barra">
-            <div class="monto">${c.monto ? util.bs(c.monto) : ''}</div>
-            <div class="relleno" style="height:${Math.round(c.monto / max * 100)}%"></div>
-            <div class="dia">${c.etiqueta}</div>
-          </div>`).join('')}
       </div>
     </div>
 

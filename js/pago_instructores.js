@@ -198,7 +198,7 @@ async function generarPagoInstructores() {
             <td><span class="subtexto">Sin instructor</span></td><td>—</td>
             <td>${S.cobradoIns ? util.bs(S.cobradoIns) : '—'}</td>
             <td>${S.nPases ? `${util.bs(S.cobradoPases)}<div class="subtexto">${S.nPases} pase${S.nPases === 1 ? '' : 's'}</div>` : '—'}</td>
-            <td>${util.bs(S.base)}</td><td>Bs. 0.00</td>
+            <td>${util.bs(S.base)}</td><td>${util.bs(0)}</td>
             <td style="color:var(--verde)">${util.bs(S.base)}</td>
           </tr>` : ''}
           <tr class="fila-total"><td><strong>TOTAL</strong></td><td></td><td></td><td></td>

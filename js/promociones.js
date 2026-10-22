@@ -126,7 +126,7 @@ async function nuevaPromocion() {
 
     <div id="lineasPromo"></div>
 
-    <div class="total-grande" id="totalPromo">Bs. 0.00 <small>de gasto</small></div>
+    <div class="total-grande" id="totalPromo">${util.bs(0)} <small>de gasto</small></div>
   `, async (form) => {
     if (!promoLineas.length) throw new Error('Agrega al menos un producto al regalo.');
     if (!form.motivo.value.trim()) throw new Error('Pon el motivo del regalo (inauguración, sorteo…).');

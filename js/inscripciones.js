@@ -255,7 +255,7 @@ async function nuevaInscripcion() {
       <span class="subtexto">Es el día en que entró el dinero, y es el que usa el
         Dashboard. Sigue sola a la fecha de inicio: cámbiala solo si cobraste otro día.</span></div>
 
-    <div class="total-grande" id="totalIns">Bs. 0.00 <small>total</small></div>
+    <div class="total-grande" id="totalIns">${util.bs(0)} <small>total</small></div>
   `, async (form) => {
     // Si escribió un nombre que deja una sola coincidencia pero no llegó
     // a tocarla, se toma esa: es la que quería.

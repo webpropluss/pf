@@ -103,7 +103,7 @@ async function nuevaVenta() {
         </select></div>
     </div>
 
-    <div class="total-grande" id="totalVenta">Bs. 0.00 <small>total</small></div>
+    <div class="total-grande" id="totalVenta">${util.bs(0)} <small>total</small></div>
   `, async (form) => {
     if (!ventaLineas.length) throw new Error('Agrega al menos un producto a la venta.');
 
