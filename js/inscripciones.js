@@ -10,14 +10,23 @@ const POR_PAGINA = 20;  // inscripciones por pantalla
 let pagoEditadoAMano = false;   // si tocan "Paga ahora", deja de seguir al total
 let fechaCobroEditada = false;  // si tocan la fecha del cobro, deja de seguir al inicio
 
+// Mensaje para quien ya venció (se cambia en Configuración)
+const MENSAJE_VENCIDO_DEFECTO =
+  'Hola {nombre} 👋 Te saludamos de Prime Fit 🥊. Tu mensualidad venció el {fecha}. ' +
+  '¡Te esperamos para renovar y seguir entrenando! 💪';
+
+let insAvisosVencida = {};   // datos de cada aviso, listos para registrar al tocar el botón
+
 async function cargarInscripciones(contenido) {
-  const [inscripciones, pagos] = await Promise.all([
+  const [inscripciones, pagos, confs] = await Promise.all([
     db.from('inscripciones')
-      .select('*, alumnos(nombre), inscripcion_detalles(disciplina_id, horario_id, ' +
+      .select('*, alumnos(nombre, telefono), inscripcion_detalles(disciplina_id, horario_id, ' +
               'disciplinas(nombre), horarios(dias, hora_inicio, instructores(nombre)))')
       .order('id', { ascending: false }).limit(200),
     db.from('pagos').select('inscripcion_id, monto'),
+    db.from('config').select('clave, valor').eq('clave', 'mensaje_whatsapp_vencido'),
   ]);
+  const plantillaVencido = (confs.data || [])[0]?.valor || MENSAJE_VENCIDO_DEFECTO;
   const pagadoPor = {};
   (pagos.data || []).forEach(p => pagadoPor[p.inscripcion_id] = (pagadoPor[p.inscripcion_id] || 0) + Number(p.monto));
 
@@ -25,6 +34,42 @@ async function cargarInscripciones(contenido) {
   const puedeEliminar = puedeAccion('eliminar');
 
   const lista = inscripciones.data || [];
+
+  // ¿Ya renovó? Si el alumno tiene otra inscripción (no anulada) que termina
+  // después de esta, la vencida ya no necesita aviso.
+  const ultimoFinDe = {};
+  lista.filter(i => !i.anulada).forEach(i => {
+    if (!ultimoFinDe[i.alumno_id] || i.fecha_fin > ultimoFinDe[i.alumno_id]) ultimoFinDe[i.alumno_id] = i.fecha_fin;
+  });
+  const renovo = (i) => ultimoFinDe[i.alumno_id] > i.fecha_fin;
+
+  // Avisos de vencida ya enviados, para no mandar dos veces sin darse cuenta
+  const hoyIns = util.hoy();
+  const vencidasIds = lista.filter(i => !i.anulada && i.fecha_fin < hoyIns).map(i => i.id);
+  const avisadoEl = {};
+  if (vencidasIds.length) {
+    const av = await db.from('avisos_whatsapp').select('inscripcion_id, fecha_envio, detalle_error')
+      .in('inscripcion_id', vencidasIds);
+    (av.data || []).filter(a => String(a.detalle_error || '').includes('vencida'))
+      .forEach(a => avisadoEl[a.inscripcion_id] = a.fecha_envio);
+  }
+  insAvisosVencida = {};
+
+  /** Botón de WhatsApp para una vencida que no renovó. */
+  const botonAvisoVencida = (i) => {
+    const tel = i.alumnos?.telefono;
+    if (!tel) return '<span class="pill pill-rojo" title="Agrégale el celular en Alumnos">Sin teléfono</span>';
+    const fechaBonita = new Date(i.fecha_fin + 'T00:00:00')
+      .toLocaleDateString('es-BO', { day: 'numeric', month: 'long' });
+    const mensaje = plantillaVencido
+      .replaceAll('{nombre}', i.alumnos?.nombre || '')
+      .replaceAll('{fecha}', fechaBonita);
+    insAvisosVencida[i.id] = { alumno_id: i.alumno_id, inscripcion_id: i.id, telefono: tel, mensaje };
+    const ya = avisadoEl[i.id];
+    return `<a class="btn btn-wa" href="https://wa.me/${tel}?text=${encodeURIComponent(mensaje)}"
+               target="_blank" rel="noopener" onclick="registrarAvisoVencida(${i.id})"
+               title="Enviarle un WhatsApp para que renueve">📲<span> ${ya ? 'Reenviar' : 'WhatsApp'}</span></a>`;
+  };
 
   /**
    * Las clases de una inscripción: una por HORARIO, no por disciplina.
@@ -65,7 +110,10 @@ async function cargarInscripciones(contenido) {
               : (saldo <= 0 ? '<span class="pill pill-verde">Pagado</span>'
                  : pagado > 0 ? '<span class="pill pill-amarillo">Parcial</span>'
                  : '<span class="pill pill-rojo">Pendiente</span>') +
-                (vencida ? ' <span class="pill pill-naranja">Vencida</span>'
+                (vencida ? ' <span class="pill pill-naranja">Vencida</span>' +
+                   (renovo(i) ? ' <span class="pill pill-verde">Ya renovó</span>'
+                    : avisadoEl[i.id] ? ` <span class="pill pill-azul" id="avisado-${i.id}">Avisado ${util.fecha(util.dia(avisadoEl[i.id]))}</span>`
+                    : ` <span id="avisado-${i.id}"></span>`)
                  : porEmpezar ? ' <span class="pill pill-azul">Empieza el ' + util.fecha(i.fecha_inicio) + '</span>' : '');
             return `
               <tr class="${vencida ? 'fila-vencida' : ''}" style="${i.anulada ? 'opacity:.5' : ''}">
@@ -86,6 +134,7 @@ async function cargarInscripciones(contenido) {
                 <td>${util.bs(saldo)}</td>
                 <td>${estado}</td>
                 <td class="acciones">
+                  ${vencida && !renovo(i) ? botonAvisoVencida(i) : ''}
                   <button title="Imprimir recibo"
                           onclick="imprimirInscripcion(${i.id})">🖨️<span class="solo-movil"> Recibo</span></button>
                   ${puedeAnular && !i.anulada && !vencida
@@ -100,6 +149,12 @@ async function cargarInscripciones(contenido) {
     <header class="cabecera"><h2>Inscripciones</h2></header>
     <div class="toolbar">
       <input type="search" id="buscarIns" placeholder="Buscar por nombre, disciplina, horario o instructor…">
+      <select id="filtroEstadoIns">
+        <option value="">Todas</option>
+        <option value="vigentes">Vigentes</option>
+        <option value="avisar">Vencidas sin renovar (${lista.filter(i => !i.anulada && i.fecha_fin < hoyIns && !renovo(i)).length})</option>
+        <option value="vencidas">Todas las vencidas</option>
+      </select>
       <button class="btn btn-rojo" onclick="nuevaInscripcion()">＋ Nueva inscripción</button>
     </div>
     <div class="panel">
@@ -118,7 +173,13 @@ async function cargarInscripciones(contenido) {
 
   const repintar = () => {
     const q = document.getElementById('buscarIns').value.trim().toLowerCase();
-    const hallados = !q ? lista : lista.filter(i => textoDe(i).includes(q));
+    const est = document.getElementById('filtroEstadoIns')?.value || '';
+    const pasaEstado = (i) =>
+      !est ? true
+      : est === 'vigentes' ? !i.anulada && i.fecha_fin >= hoyIns
+      : est === 'vencidas' ? !i.anulada && i.fecha_fin < hoyIns
+      : !i.anulada && i.fecha_fin < hoyIns && !renovo(i);          // 'avisar'
+    const hallados = lista.filter(i => pasaEstado(i) && (!q || textoDe(i).includes(q)));
     const paginas = Math.max(1, Math.ceil(hallados.length / POR_PAGINA));
     if (pagina > paginas) pagina = paginas;
 
@@ -127,7 +188,9 @@ async function cargarInscripciones(contenido) {
 
     document.getElementById('tbodyIns').innerHTML = hallados.length
       ? filas(trozo)
-      : `<tr><td colspan="10" class="cargando">No hay inscripciones que digan “${q}”.</td></tr>`;
+      : `<tr><td colspan="10" class="cargando">${q
+          ? `No hay inscripciones que digan “${q}”.`
+          : est === 'avisar' ? 'No hay vencidas sin renovar. ✅' : 'No hay inscripciones con ese filtro.'}</td></tr>`;
 
     // Contador: dice qué se está viendo de qué total
     const cont = document.getElementById('contadorIns');
@@ -164,6 +227,7 @@ async function cargarInscripciones(contenido) {
     document.querySelector('.panel')?.scrollIntoView({ block: 'start', behavior: 'smooth' });
   };
 
+  document.getElementById('filtroEstadoIns').addEventListener('change', () => { pagina = 1; repintar(); });
   document.getElementById('buscarIns').addEventListener('input', () => {
     pagina = 1;              // al buscar se vuelve al principio
     repintar();
@@ -580,4 +644,22 @@ async function anularInscripcion(id) {
   if (r.error) { notificar(r.error.message, true); return; }
   notificar('Inscripción anulada. Plaza liberada y el pago se conservó.');
   abrirModulo('inscripciones');
+}
+
+/**
+ * Anota el aviso de vencida al tocar el botón. El botón es un enlace de
+ * verdad (abre WhatsApp sin esperar a nada); esto corre al mismo tiempo.
+ */
+async function registrarAvisoVencida(id) {
+  const v = insAvisosVencida[id];
+  if (!v) return;
+  const r = await db.from('avisos_whatsapp').upsert({
+    alumno_id: v.alumno_id, inscripcion_id: v.inscripcion_id,
+    telefono: v.telefono, mensaje: v.mensaje, estado: 'enviado',
+    fecha_envio: new Date().toISOString(),
+    detalle_error: 'Aviso de vencida (enviado a mano)',
+  }, { onConflict: 'inscripcion_id' });
+  if (r.error) { notificar(r.error.message, true); return; }
+  const marca = document.getElementById('avisado-' + id);
+  if (marca) marca.outerHTML = `<span class="pill pill-azul" id="avisado-${id}">Avisado ${util.fecha(util.hoy())}</span>`;
 }

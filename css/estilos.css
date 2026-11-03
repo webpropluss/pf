@@ -835,3 +835,13 @@ tr.fila-vencida td:first-child { box-shadow: inset 3px 0 0 #ff9f2e; }
   border-radius: 8px; padding: 10px 12px; margin: -4px 0 14px; font-size: 14px;
 }
 .aviso-renovacion .btn { flex: 0 0 auto; }
+
+/* Inscripciones · botón de WhatsApp para vencidas (v37) */
+.btn-wa {
+  background: #1fa855; color: #fff; text-decoration: none;
+  padding: 7px 12px; font-size: 14px; border-radius: 8px; white-space: nowrap;
+}
+.btn-wa:hover { background: #25d366; }
+@media (max-width: 760px) {
+  table td.acciones .btn-wa { padding: 10px 16px; font-size: 15px; }
+}

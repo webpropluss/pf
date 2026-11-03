@@ -115,6 +115,9 @@ async function cargarConfiguracion(contenido) {
           <input type="number" name="dias_aviso_whatsapp" min="1" max="15" value="${c.dias_aviso_whatsapp || 3}"></div>
         <div class="campo"><label>Mensaje (usa {nombre} y {fecha})</label>
           <textarea name="mensaje_whatsapp" rows="4">${c.mensaje_whatsapp || ''}</textarea></div>
+        <div class="campo"><label>Mensaje para los que ya vencieron (usa {nombre} y {fecha})</label>
+          <textarea name="mensaje_whatsapp_vencido" rows="4">${c.mensaje_whatsapp_vencido || MENSAJE_VENCIDO_DEFECTO}</textarea>
+          <span class="subtexto">Es el que sale con el botón 📲 de las inscripciones vencidas.</span></div>
 
         <button type="submit" class="btn btn-rojo">Guardar configuración</button>
       </form>
@@ -129,7 +132,7 @@ async function cargarConfiguracion(contenido) {
     e.preventDefault();
     const f = e.target;
     const datos = ['nombre_gimnasio','telefono','direccion','precio_pase_dia','precio_pase_dia_2',
-                   'dias_aviso_whatsapp','mensaje_whatsapp']
+                   'dias_aviso_whatsapp','mensaje_whatsapp','mensaje_whatsapp_vencido']
       .map(clave => ({ clave, valor: f[clave].value }));
     const r = await db.from('config').upsert(datos);
     if (r.error) { notificar(r.error.message, true); return; }
