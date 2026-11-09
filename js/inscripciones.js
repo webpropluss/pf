@@ -35,13 +35,20 @@ async function cargarInscripciones(contenido) {
 
   const lista = inscripciones.data || [];
 
-  // ¿Ya renovó? Si el alumno tiene otra inscripción (no anulada) que termina
-  // después de esta, la vencida ya no necesita aviso.
-  const ultimoFinDe = {};
-  lista.filter(i => !i.anulada).forEach(i => {
-    if (!ultimoFinDe[i.alumno_id] || i.fecha_fin > ultimoFinDe[i.alumno_id]) ultimoFinDe[i.alumno_id] = i.fecha_fin;
-  });
-  const renovo = (i) => ultimoFinDe[i.alumno_id] > i.fecha_fin;
+  // ¿Ya renovó? Se mira CLASE POR CLASE: renovó si, para cada disciplina
+  // de esta inscripción, el alumno tiene otra inscripción (no anulada) de
+  // esa misma disciplina que termina después. Tener OTRA actividad vigente
+  // no cuenta: quien hace Boxeo e Híbrido y deja vencer Boxeo, no renovó.
+  const disciplinasDe = (i) => [...new Set((i.inscripcion_detalles || []).map(d => d.disciplina_id))];
+  const ultimoFinDe = {};   // "alumno|disciplina" → último fin
+  lista.filter(i => !i.anulada).forEach(i => disciplinasDe(i).forEach(dis => {
+    const k = i.alumno_id + '|' + dis;
+    if (!ultimoFinDe[k] || i.fecha_fin > ultimoFinDe[k]) ultimoFinDe[k] = i.fecha_fin;
+  }));
+  const renovo = (i) => {
+    const dis = disciplinasDe(i);
+    return dis.length > 0 && dis.every(d => ultimoFinDe[i.alumno_id + '|' + d] > i.fecha_fin);
+  };
 
   // Avisos de vencida ya enviados, para no mandar dos veces sin darse cuenta
   const hoyIns = util.hoy();
