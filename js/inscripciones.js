@@ -253,7 +253,7 @@ async function nuevaInscripcion() {
     db.from('alumnos').select('id, nombre, codigo, telefono, foto_url').eq('activo', true).order('nombre'),
     db.from('disciplinas').select('*').eq('activo', true).order('nombre'),
     db.from('horarios').select('*, instructores(nombre)').eq('activo', true).order('id'),
-    db.from('inscripciones').select('alumno_id, fecha_inicio, fecha_fin, inscripcion_detalles(horario_id)')
+    db.from('inscripciones').select('alumno_id, fecha_inicio, fecha_fin, inscripcion_detalles(horario_id, disciplina_id)')
       .eq('anulada', false).gte('fecha_fin', util.hoy()),
   ]);
   insVigentes = vigentes.data || [];
@@ -464,22 +464,39 @@ function horariosDelAlumnoIns() {
 }
 
 /**
- * Si el alumno todavía tiene una mensualidad vigente, lo dice y ofrece
- * empezar la nueva al día siguiente de que venza (renovar por adelantado).
+ * Si el alumno todavía tiene vigente LA MISMA disciplina que se está
+ * eligiendo, lo dice y ofrece empezar la nueva al día siguiente de que
+ * venza (renovar por adelantado). Cada disciplina va por su lado: tener
+ * Híbrido vigente no dice nada sobre su Boxeo.
  */
 function avisoRenovacionIns() {
   const caja = document.getElementById('avisoRenovacion');
   if (!caja) return;
   const id = Number(document.getElementById('insAlumnoId')?.value || 0);
-  const suyas = insVigentes.filter(i => i.alumno_id === id);
-  if (!suyas.length) { caja.innerHTML = ''; return; }
-  const vence = suyas.map(i => i.fecha_fin).sort().pop();
+  // Disciplinas en juego: la del combo + las ya agregadas a la lista
+  const elegidas = new Set(insDetalles.map(d => d.disciplina_id));
+  const enCombo = Number(document.getElementById('selDisciplina')?.value || 0);
+  if (enCombo) elegidas.add(enCombo);
+
+  // Para cada disciplina elegida, hasta cuándo la tiene vigente
+  const venceDe = {};
+  insVigentes.filter(i => i.alumno_id === id).forEach(i =>
+    (i.inscripcion_detalles || []).forEach(d => {
+      if (elegidas.has(d.disciplina_id) && (!venceDe[d.disciplina_id] || i.fecha_fin > venceDe[d.disciplina_id]))
+        venceDe[d.disciplina_id] = i.fecha_fin;
+    }));
+  const ids = Object.keys(venceDe).map(Number);
+  if (!ids.length) { caja.innerHTML = ''; return; }
+
+  const nombre = (dId) => insCatalogo.disciplinas.find(x => x.id === dId)?.nombre || 'esa disciplina';
+  const vence = ids.map(d => venceDe[d]).sort().pop();
   const sigue = new Date(vence + 'T12:00:00'); sigue.setDate(sigue.getDate() + 1);
   const desde = util.diaLocal(sigue);
+  const detalle = ids.map(d => `<strong>${nombre(d)}</strong> vigente hasta el <strong>${util.fecha(venceDe[d])}</strong>`).join(' y ');
   caja.innerHTML = `
     <div class="aviso-renovacion">
-      <span>🔁 Tiene mensualidad vigente hasta el <strong>${util.fecha(vence)}</strong>.
-        Para renovar en el mismo horario, la nueva empieza el <strong>${util.fecha(desde)}</strong>.</span>
+      <span>🔁 Ya tiene ${detalle}. Para renovar${ids.length === 1 ? 'la' : 'las'}, la nueva
+        empieza el <strong>${util.fecha(desde)}</strong>.</span>
       <button type="button" class="btn btn-oscuro" onclick="renovarDesdeIns('${desde}')">Empezar el ${util.fecha(desde)}</button>
     </div>`;
 }
@@ -509,6 +526,7 @@ function cambiarAlumnoIns() {
 }
 
 function filtrarHorariosIns() {
+  avisoRenovacionIns();
   const disId = Number(document.getElementById('selDisciplina').value);
   const sel = document.getElementById('selHorario');
   const suyos = horariosDelAlumnoIns();   // si renueva, su lugar ya es suyo
@@ -576,6 +594,7 @@ function agregarDetalleIns(automatico = false) {
 function quitarDetalleIns(i) { insDetalles.splice(i, 1); pintarDetallesIns(); }
 
 function pintarDetallesIns() {
+  avisoRenovacionIns();
   const cont = document.getElementById('tablaDetalles');
   if (!cont) return;
   cont.innerHTML = insDetalles.length ? `
