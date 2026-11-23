@@ -375,3 +375,27 @@ async function previsualizarFoto(input, idAviso, idVista, maxLado = 500) {
 async function recalcularCupos() {
   try { await db.rpc('recalcular_cupos'); } catch (e) { /* sin el paso 23 */ }
 }
+
+/**
+ * Trae TODAS las filas de una consulta, en tandas.
+ *
+ * Supabase entrega como máximo 1.000 filas por consulta y corta el resto
+ * sin avisar. Con meses de pagos (inscripciones + pases + ventas) eso se
+ * pasa, y los pagos más nuevos quedaban afuera: una inscripción cobrada
+ * se veía "Pendiente" con Bs. 0,00 pagado.
+ *
+ * @param {() => any} armar  función que arma la consulta desde cero, CON .order()
+ *                           para que las tandas no se mezclen. Ej.:
+ *                           () => db.from('pagos').select('monto').order('id')
+ * @returns {{data: any[]|null, error: any}}  igual que una consulta normal
+ */
+async function traerTodas(armar, tanda = 500) {
+  const filas = [];
+  for (let desde = 0; ; desde += tanda) {
+    const r = await armar().range(desde, desde + tanda - 1);
+    if (r.error) return { data: null, error: r.error };
+    const lote = r.data || [];
+    filas.push(...lote);
+    if (lote.length < tanda) return { data: filas, error: null };
+  }
+}

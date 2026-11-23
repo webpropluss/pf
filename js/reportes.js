@@ -56,20 +56,20 @@ async function generarReporte() {
 
   const [pagos, inscripciones, pases] = await Promise.all([
     // pagos.fecha lleva hora: los límites van con el huso horario de aquí
-    db.from('pagos').select('*, alumnos(nombre)')
-      .gte('fecha', util.desdeISO(desde)).lte('fecha', util.hastaISO(hasta)).order('fecha'),
+    traerTodas(() => db.from('pagos').select('*, alumnos(nombre)')
+      .gte('fecha', util.desdeISO(desde)).lte('fecha', util.hastaISO(hasta)).order('fecha').order('id')),
     // Las inscripciones se cuentan por CUÁNDO EMPIEZA la mensualidad,
     // igual que en el Dashboard. fecha_inicio es una fecha suelta.
-    db.from('inscripciones')
+    traerTodas(() => db.from('inscripciones')
       .select('*, alumnos(nombre), inscripcion_detalles(disciplina_id, horario_id, ' +
               'precio_mensual, precio_lista, meses, disciplinas(nombre), ' +
               'horarios(dias, hora_inicio, instructor_id, instructores(nombre)))')
-      .eq('anulada', false).gte('fecha_inicio', desde).lte('fecha_inicio', hasta),
-    db.from('pases_dia')
+      .eq('anulada', false).gte('fecha_inicio', desde).lte('fecha_inicio', hasta).order('id')),
+    traerTodas(() => db.from('pases_dia')
       .select('*, disciplinas(nombre), ' +
               'horarios(disciplina_id, instructor_id, dias, hora_inicio, ' +
               'disciplinas(nombre), instructores(nombre))')
-      .gte('fecha', desde).lte('fecha', hasta).order('fecha'),
+      .gte('fecha', desde).lte('fecha', hasta).order('fecha').order('id')),
   ]);
 
   const listaIns   = inscripciones.data || [];

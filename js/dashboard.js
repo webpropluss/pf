@@ -96,12 +96,12 @@ async function cargarDashboard(contenido) {
   const [alumnos, pagos, nuevasIns, insAbiertas, porVencer, pases, ventas, promos] =
     await Promise.all([
       db.from('alumnos').select('id', { count: 'exact', head: true }).eq('activo', true),
-      db.from('pagos').select('monto, fecha, inscripcion_id, pase_dia_id, venta_id')
-        .gte('fecha', desdeTS).lte('fecha', hastaTS),
+      traerTodas(() => db.from('pagos').select('monto, fecha, inscripcion_id, pase_dia_id, venta_id')
+        .gte('fecha', desdeTS).lte('fecha', hastaTS).order('id')),
       // ← las inscripciones se cuentan por CUÁNDO EMPIEZA la mensualidad
       db.from('inscripciones').select('id, total, fecha_inicio')
         .eq('anulada', false).gte('fecha_inicio', P.desde).lte('fecha_inicio', P.hasta),
-      db.from('inscripciones').select('id, total').eq('anulada', false),
+      traerTodas(() => db.from('inscripciones').select('id, total').eq('anulada', false).order('id')),
       db.rpc('inscripciones_por_vencer', { p_dias: diasAviso }),
       db.from('pases_dia').select('monto').gte('fecha', P.desde).lte('fecha', P.hasta),
       db.from('ventas').select('total, costo, ganancia, venta_detalles(cantidad)')
@@ -182,7 +182,8 @@ async function cargarDashboard(contenido) {
   // las del período: una deuda vieja sigue siendo una deuda hoy.
   let pendientes = 0, bsPendiente = 0;
   if (insAbiertas.data?.length) {
-    const { data: todosPagos } = await db.from('pagos').select('inscripcion_id, monto');
+    const { data: todosPagos } = await traerTodas(() =>
+      db.from('pagos').select('inscripcion_id, monto').order('id'));
     const pagadoPor = {};
     (todosPagos || []).forEach(p =>
       pagadoPor[p.inscripcion_id] = (pagadoPor[p.inscripcion_id] || 0) + Number(p.monto));

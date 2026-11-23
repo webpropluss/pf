@@ -41,16 +41,16 @@ async function generarReporteVentas() {
 
   // La bitácora va desde el inicio del rango hasta HOY: lo que pasó
   // después del cierre hace falta para saber cuánto stock había ese día.
-  const pedirMovs = (cols) => db.from('movimientos_stock').select(cols)
-    .gte('fecha', desdeTS).order('fecha');
+  const pedirMovs = (cols) => traerTodas(() => db.from('movimientos_stock').select(cols)
+    .gte('fecha', desdeTS).order('fecha').order('id'));
 
   const [productos, movsR, ventas, promos] = await Promise.all([
     db.from('productos').select('id, codigo, nombre, descripcion, categoria, precio_compra, stock, activo'),
     pedirMovs('producto_id, fecha, tipo, cantidad, costo_unitario, motivo'),
-    db.from('ventas')
+    traerTodas(() => db.from('ventas')
       .select('id, numero, fecha, subtotal, descuento, total, costo, ganancia, metodo_pago, usuario_nombre, ' +
               'venta_detalles(producto_id, nombre_producto, descripcion_producto, cantidad, precio_unitario, precio_compra)')
-      .eq('anulada', false).gte('fecha', desdeTS).lte('fecha', hastaTS).order('fecha'),
+      .eq('anulada', false).gte('fecha', desdeTS).lte('fecha', hastaTS).order('fecha').order('id')),
     db.from('promociones').select('costo, promocion_detalles(producto_id, cantidad)')
       .eq('anulada', false).gte('fecha', desdeTS).lte('fecha', hastaTS),
   ]);

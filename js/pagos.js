@@ -4,8 +4,9 @@
 
 async function cargarPagos(contenido) {
   const [inscripciones, pagos] = await Promise.all([
-    db.from('inscripciones').select('*, alumnos(nombre)').eq('anulada', false).order('id', { ascending: false }),
-    db.from('pagos').select('*, alumnos(nombre)').order('id', { ascending: false }),
+    // traerTodas: pasan de 1.000 filas y Supabase cortaba el resto
+    traerTodas(() => db.from('inscripciones').select('*, alumnos(nombre)').eq('anulada', false).order('id', { ascending: false })),
+    traerTodas(() => db.from('pagos').select('*, alumnos(nombre)').order('id', { ascending: false })),
   ]);
 
   const pagadoPor = {};

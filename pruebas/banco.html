@@ -160,6 +160,7 @@
       from(tabla) {
         let filas = (DATOS[tabla] || []).slice();
         let cuenta = false;
+        let rango = false;
         const val = (f, c) => String(f[c] ?? '');
         const q = {
           select(_cols, opt) { cuenta = !!(opt && opt.count); return q; },
@@ -174,6 +175,7 @@
                        filas = filas.filter(f => re.test(val(f, c))); return q; },
           in(c, vs)  { filas = filas.filter(f => vs.map(String).includes(val(f, c))); return q; },
           order()   { return q; },
+          range(a, b) { filas = filas.slice(a, b + 1); rango = true; return q; },
           limit()   { return q; },
           single()  { return filas.length
                         ? respuesta(filas[0])
@@ -193,9 +195,17 @@
             r.select = () => ({ single: () => respuesta(fila), then: (x) => respuesta(fila).then(x) });
             return r;
           },
-          update(d) { window.RPC.push(['update', tabla, d]); return respuesta(d); },
+          // Como en Supabase: update(...).eq(...) también se puede encadenar
+          update(d) {
+            window.RPC.push(['update', tabla, d]);
+            const r = respuesta(d);
+            r.eq = () => r;
+            return r;
+          },
           upsert(d) { window.RPC.push(['upsert', tabla, d]); return respuesta(d); },
           then(res) {
+            // Como Supabase: sin .range(), corta en 1.000 filas sin avisar
+            if (!rango && !cuenta) filas = filas.slice(0, window.TOPE_FILAS || 1000);
             return respuesta(cuenta ? null : filas,
               cuenta ? { count: filas.length } : {}).then(res);
           },
@@ -248,5 +258,6 @@
   <script src="js/reportes.js"></script>
   <script src="js/reporte_ventas.js"></script>
   <script src="js/pago_instructores.js"></script>
+  <script src="js/pagos.js"></script>
 </body>
 </html>

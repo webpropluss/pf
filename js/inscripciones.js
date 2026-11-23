@@ -18,15 +18,22 @@ const MENSAJE_VENCIDO_DEFECTO =
 let insAvisosVencida = {};   // datos de cada aviso, listos para registrar al tocar el botón
 
 async function cargarInscripciones(contenido) {
-  const [inscripciones, pagos, confs] = await Promise.all([
+  const [inscripciones, , confs] = await Promise.all([
     db.from('inscripciones')
       .select('*, alumnos(nombre, telefono), inscripcion_detalles(disciplina_id, horario_id, ' +
               'disciplinas(nombre), horarios(dias, hora_inicio, instructores(nombre)))')
       .order('id', { ascending: false }).limit(200),
-    db.from('pagos').select('inscripcion_id, monto'),
+    // Solo los pagos de las inscripciones que se muestran (no los de todo
+    // el gimnasio: pasaban de 1.000 y Supabase cortaba los más nuevos).
+    Promise.resolve(null),
     db.from('config').select('clave, valor').eq('clave', 'mensaje_whatsapp_vencido'),
   ]);
   const plantillaVencido = (confs.data || [])[0]?.valor || MENSAJE_VENCIDO_DEFECTO;
+  const idsLista = (inscripciones.data || []).map(i => i.id);
+  const pagos = idsLista.length
+    ? await traerTodas(() => db.from('pagos').select('inscripcion_id, monto')
+        .in('inscripcion_id', idsLista).order('id'))
+    : { data: [] };
   const pagadoPor = {};
   (pagos.data || []).forEach(p => pagadoPor[p.inscripcion_id] = (pagadoPor[p.inscripcion_id] || 0) + Number(p.monto));
 

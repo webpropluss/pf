@@ -21,8 +21,8 @@
 async function calcularPagoInstructores(desde, hasta) {
   const [insR, pagosR] = await Promise.all([
     db.from('instructores').select('id, nombre, porcentaje, activo'),
-    db.from('pagos').select('id, fecha, monto, metodo, inscripcion_id, pase_dia_id, alumnos(nombre)')
-      .gte('fecha', util.desdeISO(desde)).lte('fecha', util.hastaISO(hasta)).order('fecha'),
+    traerTodas(() => db.from('pagos').select('id, fecha, monto, metodo, inscripcion_id, pase_dia_id, alumnos(nombre)')
+      .gte('fecha', util.desdeISO(desde)).lte('fecha', util.hastaISO(hasta)).order('fecha').order('id')),
   ]);
 
   // Sin el paso 22 no existe la columna: todos quedan en 0 % y se avisa
